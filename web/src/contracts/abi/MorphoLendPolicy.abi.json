@@ -1,0 +1,359 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "policyManager",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "EXECUTION_TYPEHASH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "NATIVE_TOKEN",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "POLICY_MANAGER",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract PolicyManager"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "eip712Domain",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "fields",
+        "type": "bytes1",
+        "internalType": "bytes1"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "version",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "chainId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "verifyingContract",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "salt",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "extensions",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "onExecute",
+    "inputs": [
+      {
+        "name": "policyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "policyConfig",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "policyData",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "accountCallData",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "postCallData",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onInstall",
+    "inputs": [
+      {
+        "name": "policyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "policyConfig",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "onRevoke",
+    "inputs": [
+      {
+        "name": "policyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "error",
+    "name": "AfterEnd",
+    "inputs": [
+      {
+        "name": "currentTimestamp",
+        "type": "uint48",
+        "internalType": "uint48"
+      },
+      {
+        "name": "end",
+        "type": "uint48",
+        "internalType": "uint48"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "BeforeStart",
+    "inputs": [
+      {
+        "name": "currentTimestamp",
+        "type": "uint48",
+        "internalType": "uint48"
+      },
+      {
+        "name": "start",
+        "type": "uint48",
+        "internalType": "uint48"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ExceededAllowance",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "allowance",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ExecutionNonceAlreadyUsed",
+    "inputs": [
+      {
+        "name": "policyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "nonce",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSender",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "expected",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidStartEnd",
+    "inputs": [
+      {
+        "name": "start",
+        "type": "uint48",
+        "internalType": "uint48"
+      },
+      {
+        "name": "end",
+        "type": "uint48",
+        "internalType": "uint48"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PolicyConfigHashMismatch",
+    "inputs": [
+      {
+        "name": "actual",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expected",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SpendValueOverflow",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Unauthorized",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroAllowance",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAmount",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroExecutor",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroNonce",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroPeriod",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroValue",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroVault",
+    "inputs": []
+  }
+]
