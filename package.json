@@ -1,0 +1,9 @@
+{
+  "name": "account-policies-demo",
+  "private": true,
+  "workspaces": [
+    "web"
+  ],
+  "packageManager": "npm@10.9.3"
+}
+
