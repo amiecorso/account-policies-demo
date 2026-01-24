@@ -19,11 +19,23 @@ type InstalledPolicy = {
   txHash?: Hex;
 };
 
-const DEFAULT_FROM_BLOCK = process.env.NEXT_PUBLIC_POLICY_EVENTS_FROM_BLOCK
-  ? BigInt(process.env.NEXT_PUBLIC_POLICY_EVENTS_FROM_BLOCK)
-  : process.env.NEXT_PUBLIC_EVENTS_FROM_BLOCK
-    ? BigInt(process.env.NEXT_PUBLIC_EVENTS_FROM_BLOCK)
-    : BigInt('36747107');
+type StoredPolicy = {
+  chainId: number;
+  account: `0x${string}`;
+  policyId: Hex;
+  policy: `0x${string}`;
+  policyConfig: Hex;
+  installTxHash?: Hex;
+};
+
+type PolicyStatus = {
+  installed: boolean;
+  revoked: boolean;
+  validAfter: number;
+  validUntil: number;
+};
+
+const DEFAULT_FROM_BLOCK = BigInt(process.env.NEXT_PUBLIC_POLICY_EVENTS_FROM_BLOCK ?? '0');
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
@@ -53,17 +65,17 @@ export function MorphoLendPolicyDemo() {
   const { writeContractAsync, isPending } = useWriteContract();
   const { signTypedDataAsync } = useSignTypedData();
   const [installPending, setInstallPending] = useState(false);
+  const [executePending, setExecutePending] = useState(false);
+  const [revokePending, setRevokePending] = useState(false);
 
   const [vault, setVault] = useState(
     process.env.NEXT_PUBLIC_DEMO_USDC_VAULT_ADDRESS ?? '',
   );
   const [executor, setExecutor] = useState(process.env.NEXT_PUBLIC_EXECUTOR_ADDRESS ?? '');
-  const [allowance, setAllowance] = useState('0');
+  const [allowance, setAllowance] = useState('1000000');
   const [period, setPeriod] = useState('86400');
   const [start, setStart] = useState(String(nowSeconds()));
   const [end, setEnd] = useState(String(nowSeconds() + 60 * 60 * 24 * 30));
-  const [validAfter, setValidAfter] = useState('0');
-  const [validUntil, setValidUntil] = useState('0');
   const [salt, setSalt] = useState(() =>
     String(
       BigInt(nowSeconds()) * BigInt(1_000_000) + BigInt(Math.floor(Math.random() * 1_000_000)),
@@ -72,8 +84,8 @@ export function MorphoLendPolicyDemo() {
 
   const [installed, setInstalled] = useState<InstalledPolicy[]>([]);
   const [selectedPolicyId, setSelectedPolicyId] = useState<Hex | null>(null);
-  const [lastInstalledPolicyId, setLastInstalledPolicyId] = useState<Hex | null>(null);
-  const [eventsFromBlock, setEventsFromBlock] = useState(() => String(DEFAULT_FROM_BLOCK));
+  const [storedPolicies, setStoredPolicies] = useState<Record<string, StoredPolicy>>({});
+  const [policyStatus, setPolicyStatus] = useState<Record<string, PolicyStatus>>({});
   const [executeAssets, setExecuteAssets] = useState('0');
   const [executeNonce, setExecuteNonce] = useState(() => freshNonce());
   const [executeResult, setExecuteResult] = useState<{
@@ -111,14 +123,13 @@ export function MorphoLendPolicyDemo() {
     let cancelled = false;
     async function load() {
       const acct = getAddress(account!);
-      const fromBlock = BigInt(eventsFromBlock || '0');
       const logs = await baseSepoliaPublicClient.getLogs({
         address: deployed.policyManager,
         event: parseAbiItem(
           'event PolicyInstalled(bytes32 indexed policyId,address indexed account,address indexed policy)',
         ),
         args: { account: acct, policy: deployed.morphoLendPolicy },
-        fromBlock,
+        fromBlock: DEFAULT_FROM_BLOCK,
         toBlock: 'latest',
       });
 
@@ -140,7 +151,74 @@ export function MorphoLendPolicyDemo() {
     return () => {
       cancelled = true;
     };
-  }, [account, eventsFromBlock, selectedPolicyId]);
+  }, [account, selectedPolicyId]);
+
+  useEffect(() => {
+    if (!account) {
+      setStoredPolicies({});
+      return;
+    }
+    let cancelled = false;
+    async function loadStored() {
+      const res = await fetch(
+        `/api/policies?account=${encodeURIComponent(account)}&chainId=${deployed.chainId}`,
+      );
+      const json = (await res.json()) as { policies?: StoredPolicy[] };
+      if (cancelled) return;
+      const map: Record<string, StoredPolicy> = {};
+      for (const p of json.policies ?? []) map[p.policyId.toLowerCase()] = p;
+      setStoredPolicies(map);
+    }
+    loadStored().catch(() => {
+      if (!cancelled) setStoredPolicies({});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [account]);
+
+  useEffect(() => {
+    if (!account) {
+      setPolicyStatus({});
+      return;
+    }
+    let cancelled = false;
+    async function loadStatus() {
+      if (installed.length === 0) {
+        setPolicyStatus({});
+        return;
+      }
+      const next: Record<string, PolicyStatus> = {};
+      await Promise.all(
+        installed.map(async (p) => {
+          try {
+            const [isInstalled, isRevoked, _acct, vAfter, vUntil] =
+              (await baseSepoliaPublicClient.readContract({
+                address: deployed.policyManager,
+                abi: policyManagerAbi,
+                functionName: 'getPolicyRecord',
+                args: [deployed.morphoLendPolicy, p.policyId],
+              })) as [boolean, boolean, `0x${string}`, bigint, bigint];
+            next[p.policyId.toLowerCase()] = {
+              installed: isInstalled,
+              revoked: isRevoked,
+              validAfter: Number(vAfter),
+              validUntil: Number(vUntil),
+            };
+          } catch {
+            // ignore
+          }
+        }),
+      );
+      if (!cancelled) setPolicyStatus(next);
+    }
+    loadStatus().catch(() => {
+      if (!cancelled) setPolicyStatus({});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [account, installed]);
 
   async function onInstall() {
     if (!account || !policyConfig) return;
@@ -150,8 +228,8 @@ export function MorphoLendPolicyDemo() {
     const binding = {
       account: getAddress(account),
       policy: deployed.morphoLendPolicy,
-      validAfter: BigInt(validAfter || '0'),
-      validUntil: BigInt(validUntil || '0'),
+      validAfter: BigInt(start || '0'),
+      validUntil: BigInt(end || '0'),
       salt: BigInt(salt || '0'),
       policyConfigHash: hashPolicyConfig(policyConfig),
     } as const;
@@ -218,9 +296,36 @@ export function MorphoLendPolicyDemo() {
       }
 
       setSessionPolicyConfigs((prev) => ({ ...prev, [policyId.toLowerCase()]: policyConfig }));
+      // Optimistically add to the installed list so the user can execute immediately
+      // (RPC log indexing can lag, and fromBlock config can hide new installs if mis-set).
+      setInstalled((prev) => {
+        const key = policyId.toLowerCase();
+        if (prev.some((p) => p.policyId.toLowerCase() === key)) return prev;
+        return [{ policyId, txHash: json.hash }, ...prev];
+      });
       setSelectedPolicyId(policyId);
-      setLastInstalledPolicyId(policyId);
       setExecuteResult({ text: `Installed policy ${policyId}`, txHash: json.hash });
+
+      // Persist config so we can execute later without prompting.
+      await fetch('/api/policies', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'upsert',
+          chainId: deployed.chainId,
+          account: binding.account,
+          policyId,
+          policy: deployed.morphoLendPolicy,
+          policyConfig,
+          binding: {
+            validAfter: String(binding.validAfter),
+            validUntil: String(binding.validUntil),
+            salt: String(binding.salt),
+            policyConfigHash: binding.policyConfigHash,
+          },
+          installTxHash: json.hash,
+        }),
+      });
     } finally {
       setInstallPending(false);
     }
@@ -228,52 +333,81 @@ export function MorphoLendPolicyDemo() {
 
   async function onRevoke(policyId: Hex) {
     if (!account) return;
-    const hash = await writeContractAsync({
-      address: deployed.policyManager,
-      abi: policyManagerAbi,
-      functionName: 'revokePolicy',
-      args: [deployed.morphoLendPolicy, policyId],
-    });
-    setExecuteResult({ text: `Revoked policy ${policyId}`, txHash: hash });
+    if (revokePending) return;
+    setRevokePending(true);
+    try {
+      const hash = await writeContractAsync({
+        address: deployed.policyManager,
+        abi: policyManagerAbi,
+        functionName: 'revokePolicy',
+        args: [deployed.morphoLendPolicy, policyId],
+      });
+      setExecuteResult({ text: `Revoked policy ${policyId}`, txHash: hash });
+    } finally {
+      setRevokePending(false);
+    }
   }
 
   async function onExecute(policyId: Hex) {
     if (!account) return;
-    const policyConfigHex =
-      sessionPolicyConfigs[policyId.toLowerCase()] ??
-      (prompt('Paste the policyConfig hex for this policyId (required):') as Hex | null);
+    if (executePending) return;
+    let policyConfigHex = sessionPolicyConfigs[policyId.toLowerCase()];
+    if (!policyConfigHex) {
+      const stored = storedPolicies[policyId.toLowerCase()];
+      if (stored?.policyConfig) {
+        policyConfigHex = stored.policyConfig;
+        setSessionPolicyConfigs((prev) => ({ ...prev, [policyId.toLowerCase()]: policyConfigHex! }));
+      }
+    }
+    if (!policyConfigHex) {
+      policyConfigHex = prompt('Paste the policyConfig hex for this policyId (required):') as Hex | null;
+    }
 
     if (!policyConfigHex) return;
 
-    setExecuteResult(null);
-    const res = await fetch('/api/morpho/execute', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        account,
-        policyId,
-        policyConfig: policyConfigHex,
-        assets: executeAssets,
-        nonce: executeNonce,
-      }),
-    });
+    setExecutePending(true);
+    try {
+      setExecuteResult(null);
+      const res = await fetch('/api/morpho/execute', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          account,
+          policyId,
+          policyConfig: policyConfigHex,
+          assets: executeAssets,
+          nonce: executeNonce,
+        }),
+      });
 
-    const json = (await res.json()) as { hash?: string; error?: string; details?: unknown; debug?: unknown };
-    if (!res.ok || !json.hash) {
-      setExecuteResult({ text: json.error ?? 'Execution failed', details: json.details, debug: json.debug });
-      return;
+      const json = (await res.json()) as { hash?: string; error?: string; details?: unknown; debug?: unknown };
+      if (!res.ok || !json.hash) {
+        setExecuteResult({ text: json.error ?? 'Execution failed', details: json.details, debug: json.debug });
+        return;
+      }
+
+      setSessionPolicyConfigs((prev) => ({ ...prev, [policyId.toLowerCase()]: policyConfigHex }));
+      setExecuteResult({ text: 'Executed', txHash: json.hash as Hex });
+      setExecuteNonce(freshNonce());
+    } finally {
+      setExecutePending(false);
     }
-
-    setSessionPolicyConfigs((prev) => ({ ...prev, [policyId.toLowerCase()]: policyConfigHex }));
-    setExecuteResult({ text: 'Executed', txHash: json.hash as Hex });
-    setExecuteNonce(freshNonce());
   }
 
   const selectedConfig = selectedPolicyId
     ? sessionPolicyConfigs[selectedPolicyId.toLowerCase()]
     : undefined;
+  const selectedStored = selectedPolicyId ? storedPolicies[selectedPolicyId.toLowerCase()] : undefined;
 
-  const effectivePolicyId = selectedPolicyId ?? lastInstalledPolicyId;
+  useEffect(() => {
+    if (!selectedPolicyId) return;
+    const key = selectedPolicyId.toLowerCase();
+    if (sessionPolicyConfigs[key]) return;
+    const stored = storedPolicies[key];
+    if (!stored?.policyConfig) return;
+    // Hydrate in-memory cache so execute flows don't need to branch on storage source.
+    setSessionPolicyConfigs((prev) => ({ ...prev, [key]: stored.policyConfig }));
+  }, [selectedPolicyId, sessionPolicyConfigs, storedPolicies]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -343,23 +477,6 @@ export function MorphoLendPolicyDemo() {
               onChange={(e) => setEnd(e.target.value)}
             />
           </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">Binding validAfter (uint40)</span>
-            <input
-              className="rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-black"
-              value={validAfter}
-              onChange={(e) => setValidAfter(e.target.value)}
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">Binding validUntil (uint40)</span>
-            <input
-              className="rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-black"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-            />
-          </label>
         </div>
 
         <div className="mt-3 flex flex-col gap-2">
@@ -390,14 +507,15 @@ export function MorphoLendPolicyDemo() {
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
           <button
-            disabled={!canInstall || isPending || installPending}
+            disabled={!canInstall || isPending || installPending || executePending || revokePending}
             onClick={onInstall}
             className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
           >
             {installPending ? 'Installing…' : 'Sign + install policy (app tx)'}
           </button>
           <div className="text-xs text-zinc-600 dark:text-zinc-400">
-            PolicyManager: {deployed.policyManager} • Policy: {deployed.morphoLendPolicy}
+            <div>PolicyManager: {deployed.policyManager}</div>
+            <div>Policy: {deployed.morphoLendPolicy}</div>
           </div>
         </div>
 
@@ -420,25 +538,11 @@ export function MorphoLendPolicyDemo() {
           here to trigger an execution from the app’s executor wallet (no user signature).
         </p>
 
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">Index from block</span>
-            <input
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-black sm:w-56"
-              value={eventsFromBlock}
-              onChange={(e) => setEventsFromBlock(e.target.value)}
-            />
-          </label>
-          <div className="text-xs text-zinc-600 dark:text-zinc-400">
-            Tip: set this to the block where your current PolicyManager was deployed to make indexing fast.
-          </div>
-        </div>
-
         {!account ? (
           <div className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">Connect a wallet.</div>
         ) : installed.length === 0 ? (
           <div className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-            No installs found for this wallet (from block {eventsFromBlock}).
+            No installs found for this wallet (from block {String(DEFAULT_FROM_BLOCK)}).
           </div>
         ) : (
           <div className="mt-3 flex flex-col gap-3">
@@ -462,13 +566,30 @@ export function MorphoLendPolicyDemo() {
                 <div className="text-sm">
                   <span className="font-medium">policyId</span>: {selectedPolicyId}
                 </div>
+                {policyStatus[selectedPolicyId.toLowerCase()] ? (
+                  <div className="text-sm">
+                    <span className="font-medium">status</span>:{' '}
+                    {policyStatus[selectedPolicyId.toLowerCase()].revoked
+                      ? 'revoked'
+                      : policyStatus[selectedPolicyId.toLowerCase()].installed
+                        ? 'installed'
+                        : 'unknown'}
+                    <span className="text-zinc-600 dark:text-zinc-400">
+                      {' '}
+                      (validAfter={policyStatus[selectedPolicyId.toLowerCase()].validAfter || 0}, validUntil=
+                      {policyStatus[selectedPolicyId.toLowerCase()].validUntil || 0})
+                    </span>
+                  </div>
+                ) : null}
                 <div className="text-sm">
                   <span className="font-medium">policyConfig</span>:{' '}
                   {selectedConfig ? (
                     <span className="text-zinc-600 dark:text-zinc-400">available in session</span>
+                  ) : selectedStored?.policyConfig ? (
+                    <span className="text-zinc-600 dark:text-zinc-400">available from local store</span>
                   ) : (
                     <span className="text-amber-700 dark:text-amber-400">
-                      missing in session (you’ll be prompted on execute)
+                      missing in session (will load from local store or prompt)
                     </span>
                   )}
                 </div>
@@ -476,15 +597,17 @@ export function MorphoLendPolicyDemo() {
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                   <button
                     onClick={() => onRevoke(selectedPolicyId)}
+                    disabled={isPending || installPending || executePending || revokePending}
                     className="rounded-lg border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
                   >
-                    Revoke (wallet tx)
+                    {revokePending ? 'Revoking…' : 'Revoke (wallet tx)'}
                   </button>
                   <button
                     onClick={() => onExecute(selectedPolicyId)}
+                    disabled={isPending || installPending || revokePending || executePending}
                     className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
                   >
-                    Execute lend (app tx)
+                    {executePending ? 'Executing…' : 'Execute lend (app tx)'}
                   </button>
                 </div>
 
@@ -542,70 +665,7 @@ export function MorphoLendPolicyDemo() {
         ) : null}
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-        <h2 className="text-lg font-semibold">3) Execute lend (app tx)</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          This broadcasts via the app’s executor wallet (no user signature). Your wallet must hold enough USDC and be
-          configured with PolicyManager as an owner.
-        </p>
-
-        {!account ? (
-          <div className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">Connect a wallet.</div>
-        ) : !effectivePolicyId ? (
-          <div className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-            Install a policy first so we have a policyId to execute against.
-          </div>
-        ) : (
-          <div className="mt-3 flex flex-col gap-3">
-            <div className="text-sm">
-              <span className="font-medium">policyId</span>: {effectivePolicyId}
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">assets (uint256, raw units)</span>
-                <input
-                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-black"
-                  value={executeAssets}
-                  onChange={(e) => setExecuteAssets(e.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-zinc-600 dark:text-zinc-400">nonce (uint256)</span>
-                <input
-                  className="rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-black"
-                  value={executeNonce}
-                  onChange={(e) => setExecuteNonce(e.target.value)}
-                />
-              </label>
-            </div>
-
-            <button
-              onClick={() => onExecute(effectivePolicyId)}
-              className="w-fit rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-            >
-              Execute lend (app tx)
-            </button>
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-        <h2 className="text-lg font-semibold">Protocol ergonomics gaps (worth adding getters)</h2>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-600 dark:text-zinc-400">
-          <li>
-            No on-chain way to enumerate policies for an account (dashboard requires event indexing).
-          </li>
-          <li>
-            MorphoLendPolicy stores only <code>configHash</code> internally; you can’t recover or even read
-            it on-chain (UI must persist the config bytes off-chain).
-          </li>
-          <li>
-            Recurring allowance usage (<code>spend</code> for the current period) has no getter, so the UI
-            can’t show “remaining allowance” without adding a view function.
-          </li>
-        </ul>
-      </section>
+      {/* Intentionally omitted: protocol ergonomics notes. */}
     </div>
   );
 }

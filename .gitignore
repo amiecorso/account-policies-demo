@@ -19,6 +19,9 @@ out/
 .env.local
 .env.*.local
 
+# Demo local policy config store
+web/.policy-store.json
+
 # OS / IDE
 .DS_Store
 .idea/
