@@ -1,7 +1,7 @@
 'use client';
 
-import { Wallet } from '@coinbase/onchainkit/wallet';
 import { MorphoLendPolicyDemo } from '../components/MorphoLendPolicyDemo';
+import { SmartWalletConnect } from '../components/SmartWalletConnect';
 
 export default function Home() {
   return (
@@ -15,7 +15,7 @@ export default function Home() {
           protocol).
         </p>
         <div className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-          <Wallet />
+          <SmartWalletConnect />
         </div>
 
         <MorphoLendPolicyDemo />

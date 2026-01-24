@@ -14,13 +14,7 @@
     "type": "function",
     "name": "POLICY_BINDING_TYPEHASH",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
     "stateMutability": "view"
   },
   {
@@ -41,36 +35,16 @@
     "name": "eip712Domain",
     "inputs": [],
     "outputs": [
-      {
-        "name": "fields",
-        "type": "bytes1",
-        "internalType": "bytes1"
-      },
-      {
-        "name": "name",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "version",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "chainId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
+      { "name": "fields", "type": "bytes1", "internalType": "bytes1" },
+      { "name": "name", "type": "string", "internalType": "string" },
+      { "name": "version", "type": "string", "internalType": "string" },
+      { "name": "chainId", "type": "uint256", "internalType": "uint256" },
       {
         "name": "verifyingContract",
         "type": "address",
         "internalType": "address"
       },
-      {
-        "name": "salt",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
+      { "name": "salt", "type": "bytes32", "internalType": "bytes32" },
       {
         "name": "extensions",
         "type": "uint256[]",
@@ -83,26 +57,10 @@
     "type": "function",
     "name": "execute",
     "inputs": [
-      {
-        "name": "policy",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "policyConfig",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "policyData",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
+      { "name": "policy", "type": "address", "internalType": "address" },
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "policyConfig", "type": "bytes", "internalType": "bytes" },
+      { "name": "policyData", "type": "bytes", "internalType": "bytes" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -111,23 +69,11 @@
     "type": "function",
     "name": "getAccountForPolicy",
     "inputs": [
-      {
-        "name": "policy",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policy", "type": "address", "internalType": "address" },
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ],
     "outputs": [
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "account", "type": "address", "internalType": "address" }
     ],
     "stateMutability": "view"
   },
@@ -140,16 +86,8 @@
         "type": "tuple",
         "internalType": "struct PolicyManager.PolicyBinding",
         "components": [
-          {
-            "name": "account",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "policy",
-            "type": "address",
-            "internalType": "address"
-          },
+          { "name": "account", "type": "address", "internalType": "address" },
+          { "name": "policy", "type": "address", "internalType": "address" },
           {
             "name": "validAfter",
             "type": "uint40",
@@ -160,11 +98,7 @@
             "type": "uint40",
             "internalType": "uint40"
           },
-          {
-            "name": "salt",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
+          { "name": "salt", "type": "uint256", "internalType": "uint256" },
           {
             "name": "policyConfigHash",
             "type": "bytes32",
@@ -173,13 +107,7 @@
         ]
       }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
     "stateMutability": "pure"
   },
   {
@@ -191,16 +119,8 @@
         "type": "tuple",
         "internalType": "struct PolicyManager.PolicyBinding",
         "components": [
-          {
-            "name": "account",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "policy",
-            "type": "address",
-            "internalType": "address"
-          },
+          { "name": "account", "type": "address", "internalType": "address" },
+          { "name": "policy", "type": "address", "internalType": "address" },
           {
             "name": "validAfter",
             "type": "uint40",
@@ -211,11 +131,7 @@
             "type": "uint40",
             "internalType": "uint40"
           },
-          {
-            "name": "salt",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
+          { "name": "salt", "type": "uint256", "internalType": "uint256" },
           {
             "name": "policyConfigHash",
             "type": "bytes32",
@@ -225,11 +141,7 @@
       }
     ],
     "outputs": [
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ],
     "stateMutability": "pure"
   },
@@ -237,43 +149,15 @@
     "type": "function",
     "name": "getPolicyRecord",
     "inputs": [
-      {
-        "name": "policy",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policy", "type": "address", "internalType": "address" },
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ],
     "outputs": [
-      {
-        "name": "installed",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "revoked",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "validAfter",
-        "type": "uint40",
-        "internalType": "uint40"
-      },
-      {
-        "name": "validUntil",
-        "type": "uint40",
-        "internalType": "uint40"
-      }
+      { "name": "installed", "type": "bool", "internalType": "bool" },
+      { "name": "revoked", "type": "bool", "internalType": "bool" },
+      { "name": "account", "type": "address", "internalType": "address" },
+      { "name": "validAfter", "type": "uint40", "internalType": "uint40" },
+      { "name": "validUntil", "type": "uint40", "internalType": "uint40" }
     ],
     "stateMutability": "view"
   },
@@ -286,16 +170,8 @@
         "type": "tuple",
         "internalType": "struct PolicyManager.PolicyBinding",
         "components": [
-          {
-            "name": "account",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "policy",
-            "type": "address",
-            "internalType": "address"
-          },
+          { "name": "account", "type": "address", "internalType": "address" },
+          { "name": "policy", "type": "address", "internalType": "address" },
           {
             "name": "validAfter",
             "type": "uint40",
@@ -306,11 +182,7 @@
             "type": "uint40",
             "internalType": "uint40"
           },
-          {
-            "name": "salt",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
+          { "name": "salt", "type": "uint256", "internalType": "uint256" },
           {
             "name": "policyConfigHash",
             "type": "bytes32",
@@ -318,18 +190,10 @@
           }
         ]
       },
-      {
-        "name": "policyConfig",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
+      { "name": "policyConfig", "type": "bytes", "internalType": "bytes" }
     ],
     "outputs": [
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ],
     "stateMutability": "nonpayable"
   },
@@ -342,16 +206,8 @@
         "type": "tuple",
         "internalType": "struct PolicyManager.PolicyBinding",
         "components": [
-          {
-            "name": "account",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "policy",
-            "type": "address",
-            "internalType": "address"
-          },
+          { "name": "account", "type": "address", "internalType": "address" },
+          { "name": "policy", "type": "address", "internalType": "address" },
           {
             "name": "validAfter",
             "type": "uint40",
@@ -362,11 +218,7 @@
             "type": "uint40",
             "internalType": "uint40"
           },
-          {
-            "name": "salt",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
+          { "name": "salt", "type": "uint256", "internalType": "uint256" },
           {
             "name": "policyConfigHash",
             "type": "bytes32",
@@ -374,23 +226,11 @@
           }
         ]
       },
-      {
-        "name": "policyConfig",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "userSig",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
+      { "name": "policyConfig", "type": "bytes", "internalType": "bytes" },
+      { "name": "userSig", "type": "bytes", "internalType": "bytes" }
     ],
     "outputs": [
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ],
     "stateMutability": "nonpayable"
   },
@@ -398,120 +238,50 @@
     "type": "function",
     "name": "isPolicyActive",
     "inputs": [
-      {
-        "name": "policy",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policy", "type": "address", "internalType": "address" },
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
     "stateMutability": "view"
   },
   {
     "type": "function",
     "name": "isPolicyActiveNow",
     "inputs": [
-      {
-        "name": "policy",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policy", "type": "address", "internalType": "address" },
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
     "stateMutability": "view"
   },
   {
     "type": "function",
     "name": "isPolicyInstalled",
     "inputs": [
-      {
-        "name": "policy",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policy", "type": "address", "internalType": "address" },
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
     "stateMutability": "view"
   },
   {
     "type": "function",
     "name": "isPolicyRevoked",
     "inputs": [
-      {
-        "name": "policy",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policy", "type": "address", "internalType": "address" },
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
     "stateMutability": "view"
   },
   {
     "type": "function",
     "name": "revokePolicy",
     "inputs": [
-      {
-        "name": "policy",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policy", "type": "address", "internalType": "address" },
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ],
-    "outputs": [
-      {
-        "name": "revoked",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
+    "outputs": [{ "name": "revoked", "type": "bool", "internalType": "bool" }],
     "stateMutability": "nonpayable"
   },
   {
@@ -593,11 +363,7 @@
     "type": "error",
     "name": "AddressEmptyCode",
     "inputs": [
-      {
-        "name": "target",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "target", "type": "address", "internalType": "address" }
     ]
   },
   {
@@ -609,11 +375,7 @@
         "type": "uint40",
         "internalType": "uint40"
       },
-      {
-        "name": "validUntil",
-        "type": "uint40",
-        "internalType": "uint40"
-      }
+      { "name": "validUntil", "type": "uint40", "internalType": "uint40" }
     ]
   },
   {
@@ -625,134 +387,70 @@
         "type": "uint40",
         "internalType": "uint40"
       },
-      {
-        "name": "validAfter",
-        "type": "uint40",
-        "internalType": "uint40"
-      }
+      { "name": "validAfter", "type": "uint40", "internalType": "uint40" }
     ]
   },
   {
     "type": "error",
     "name": "ExternalCallFailed",
     "inputs": [
-      {
-        "name": "target",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "returnData",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
+      { "name": "target", "type": "address", "internalType": "address" },
+      { "name": "returnData", "type": "bytes", "internalType": "bytes" }
     ]
   },
-  {
-    "type": "error",
-    "name": "FailedCall",
-    "inputs": []
-  },
+  { "type": "error", "name": "FailedCall", "inputs": [] },
   {
     "type": "error",
     "name": "InsufficientBalance",
     "inputs": [
-      {
-        "name": "balance",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "needed",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
+      { "name": "balance", "type": "uint256", "internalType": "uint256" },
+      { "name": "needed", "type": "uint256", "internalType": "uint256" }
     ]
   },
   {
     "type": "error",
     "name": "InvalidSender",
     "inputs": [
-      {
-        "name": "sender",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "expected",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "sender", "type": "address", "internalType": "address" },
+      { "name": "expected", "type": "address", "internalType": "address" }
     ]
   },
-  {
-    "type": "error",
-    "name": "InvalidSignature",
-    "inputs": []
-  },
+  { "type": "error", "name": "InvalidSignature", "inputs": [] },
   {
     "type": "error",
     "name": "PolicyAlreadyInstalled",
     "inputs": [
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ]
   },
   {
     "type": "error",
     "name": "PolicyAlreadyRevoked",
     "inputs": [
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ]
   },
   {
     "type": "error",
     "name": "PolicyConfigHashMismatch",
     "inputs": [
-      {
-        "name": "actual",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "expected",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "actual", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "expected", "type": "bytes32", "internalType": "bytes32" }
     ]
   },
   {
     "type": "error",
     "name": "PolicyNotInstalled",
     "inputs": [
-      {
-        "name": "policyId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ]
   },
-  {
-    "type": "error",
-    "name": "ReentrancyGuardReentrantCall",
-    "inputs": []
-  },
+  { "type": "error", "name": "ReentrancyGuardReentrantCall", "inputs": [] },
   {
     "type": "error",
     "name": "Unauthorized",
     "inputs": [
-      {
-        "name": "caller",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "caller", "type": "address", "internalType": "address" }
     ]
   }
 ]

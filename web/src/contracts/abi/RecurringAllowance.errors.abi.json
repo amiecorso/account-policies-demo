@@ -1,0 +1,43 @@
+[
+  { "type": "error", "name": "ZeroPeriod", "inputs": [] },
+  { "type": "error", "name": "ZeroAllowance", "inputs": [] },
+  {
+    "type": "error",
+    "name": "InvalidStartEnd",
+    "inputs": [
+      { "name": "start", "type": "uint48" },
+      { "name": "end", "type": "uint48" }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "BeforeStart",
+    "inputs": [
+      { "name": "currentTimestamp", "type": "uint48" },
+      { "name": "start", "type": "uint48" }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AfterEnd",
+    "inputs": [
+      { "name": "currentTimestamp", "type": "uint48" },
+      { "name": "end", "type": "uint48" }
+    ]
+  },
+  { "type": "error", "name": "ZeroValue", "inputs": [] },
+  {
+    "type": "error",
+    "name": "SpendValueOverflow",
+    "inputs": [{ "name": "value", "type": "uint256" }]
+  },
+  {
+    "type": "error",
+    "name": "ExceededAllowance",
+    "inputs": [
+      { "name": "value", "type": "uint256" },
+      { "name": "allowance", "type": "uint256" }
+    ]
+  }
+]
+
