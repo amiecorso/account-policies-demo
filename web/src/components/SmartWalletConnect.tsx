@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 
 export function SmartWalletConnect() {
   const { address, status } = useAccount();
   const { connectors, connectAsync, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const baseAccountConnector = useMemo(() => {
     // Our wagmi config only registers `baseAccount`, but be defensive.
@@ -14,6 +15,7 @@ export function SmartWalletConnect() {
   }, [connectors]);
 
   const isConnected = status === 'connected' && !!address;
+  const walletUrl = process.env.NEXT_PUBLIC_BASE_ACCOUNT_WALLET_URL ?? '(unset)';
 
   return (
     <div className="flex flex-col gap-3">
@@ -37,20 +39,27 @@ export function SmartWalletConnect() {
             disabled={!baseAccountConnector || isPending}
             onClick={async () => {
               if (!baseAccountConnector) return;
-              await connectAsync({ connector: baseAccountConnector });
+              setLocalError(null);
+              try {
+                await connectAsync({ connector: baseAccountConnector });
+              } catch (e) {
+                setLocalError(e instanceof Error ? e.message : String(e));
+              }
             }}
             type="button"
           >
             {isPending ? 'Connecting…' : 'Connect Smart Wallet'}
           </button>
           <div className="text-xs text-zinc-600 dark:text-zinc-400">
-            Smart Wallet only (uses your configured BaseAccount walletUrl).
+            Smart Wallet only (BaseAccount). walletUrl: <span className="font-mono">{walletUrl}</span>
           </div>
         </div>
       )}
 
-      {error ? (
-        <div className="text-xs text-red-700 dark:text-red-400">{error.message}</div>
+      {localError || error ? (
+        <div className="text-xs text-red-700 dark:text-red-400">
+          {localError ?? error?.message}
+        </div>
       ) : null}
     </div>
   );

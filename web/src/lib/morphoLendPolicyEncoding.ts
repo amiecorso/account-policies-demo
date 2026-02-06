@@ -1,4 +1,4 @@
-import { encodeAbiParameters, keccak256, type Hex } from 'viem';
+import { decodeAbiParameters, encodeAbiParameters, keccak256, type Hex } from 'viem';
 
 export type RecurringAllowanceLimit = {
   allowance: bigint; // uint160
@@ -8,16 +8,18 @@ export type RecurringAllowanceLimit = {
 };
 
 export function encodeMorphoLendPolicyConfig(input: {
+  account: `0x${string}`;
   executor: `0x${string}`;
   vault: `0x${string}`;
   depositLimit: RecurringAllowanceLimit;
 }): Hex {
-  return encodeAbiParameters(
+  // Canonical AOAPolicy encoding:
+  // policyConfig = abi.encode(AOAConfig{account, executor}, abi.encode(MorphoConfig{vault, depositLimit}))
+  const policySpecificConfig = encodeAbiParameters(
     [
       {
         type: 'tuple',
         components: [
-          { name: 'executor', type: 'address' },
           { name: 'vault', type: 'address' },
           {
             name: 'depositLimit',
@@ -34,7 +36,6 @@ export function encodeMorphoLendPolicyConfig(input: {
     ],
     [
       {
-        executor: input.executor,
         vault: input.vault,
         depositLimit: {
           allowance: input.depositLimit.allowance,
@@ -45,10 +46,89 @@ export function encodeMorphoLendPolicyConfig(input: {
       },
     ],
   );
+
+  return encodeAbiParameters(
+    [
+      {
+        name: 'aoa',
+        type: 'tuple',
+        components: [
+          { name: 'account', type: 'address' },
+          { name: 'executor', type: 'address' },
+        ],
+      },
+      { name: 'policySpecificConfig', type: 'bytes' },
+    ],
+    [{ account: input.account, executor: input.executor }, policySpecificConfig],
+  );
 }
 
 export function hashPolicyConfig(policyConfig: Hex): Hex {
   return keccak256(policyConfig);
+}
+
+export function decodeMorphoLendPolicyConfig(policyConfig: Hex): {
+  account: `0x${string}`;
+  executor: `0x${string}`;
+  vault: `0x${string}`;
+  depositLimit: {
+    allowance: bigint;
+    period: bigint;
+    start: bigint;
+    end: bigint;
+  };
+} {
+  const [aoa, policySpecificConfig] = decodeAbiParameters(
+    [
+      {
+        name: 'aoa',
+        type: 'tuple',
+        components: [
+          { name: 'account', type: 'address' },
+          { name: 'executor', type: 'address' },
+        ],
+      },
+      { name: 'policySpecificConfig', type: 'bytes' },
+    ],
+    policyConfig,
+  ) as unknown as [
+    { account: `0x${string}`; executor: `0x${string}` },
+    Hex,
+  ];
+
+  const [morpho] = decodeAbiParameters(
+    [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'vault', type: 'address' },
+          {
+            name: 'depositLimit',
+            type: 'tuple',
+            components: [
+              { name: 'allowance', type: 'uint160' },
+              { name: 'period', type: 'uint48' },
+              { name: 'start', type: 'uint48' },
+              { name: 'end', type: 'uint48' },
+            ],
+          },
+        ],
+      },
+    ],
+    policySpecificConfig,
+  ) as unknown as [
+    {
+      vault: `0x${string}`;
+      depositLimit: { allowance: bigint; period: bigint; start: bigint; end: bigint };
+    },
+  ];
+
+  return {
+    account: aoa.account,
+    executor: aoa.executor,
+    vault: morpho.vault,
+    depositLimit: morpho.depositLimit,
+  };
 }
 
 export function encodeMorphoLendPolicyData(input: {
@@ -56,29 +136,28 @@ export function encodeMorphoLendPolicyData(input: {
   nonce: bigint; // uint256
   signature: Hex; // bytes
 }): Hex {
-  return encodeAbiParameters(
+  // Canonical AOAPolicy encoding:
+  // policyData = abi.encode(bytes actionData, bytes signature)
+  // where actionData = abi.encode(LendData{assets, nonce})
+  const actionData = encodeAbiParameters(
     [
       {
         type: 'tuple',
         components: [
-          {
-            name: 'data',
-            type: 'tuple',
-            components: [
-              { name: 'assets', type: 'uint256' },
-              { name: 'nonce', type: 'uint256' },
-            ],
-          },
-          { name: 'signature', type: 'bytes' },
+          { name: 'assets', type: 'uint256' },
+          { name: 'nonce', type: 'uint256' },
         ],
       },
     ],
+    [{ assets: input.assets, nonce: input.nonce }],
+  );
+
+  return encodeAbiParameters(
     [
-      {
-        data: { assets: input.assets, nonce: input.nonce },
-        signature: input.signature,
-      },
+      { name: 'actionData', type: 'bytes' },
+      { name: 'signature', type: 'bytes' },
     ],
+    [actionData, input.signature],
   );
 }
 

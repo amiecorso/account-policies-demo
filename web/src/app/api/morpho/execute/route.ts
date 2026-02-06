@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { baseSepolia } from 'viem/chains';
 import {
   BaseError,
-  decodeAbiParameters,
   erc20Abi,
   type Abi,
   createPublicClient,
@@ -21,6 +20,7 @@ import {
 } from '../../../../contracts/abi';
 import {
   encodeMorphoLendPolicyData,
+  decodeMorphoLendPolicyConfig,
   hashLendData,
   hashPolicyConfig,
 } from '../../../../lib/morphoLendPolicyEncoding';
@@ -31,17 +31,6 @@ type Body = {
   policyConfig: Hex;
   assets: string; // decimal string -> bigint
   nonce: string; // decimal string -> bigint
-};
-
-type DecodedPolicyConfig = {
-  executor: `0x${string}`;
-  vault: `0x${string}`;
-  depositLimit: {
-    allowance: bigint;
-    period: bigint;
-    start: bigint;
-    end: bigint;
-  };
 };
 
 function jsonSafe(value: unknown): unknown {
@@ -136,37 +125,24 @@ export async function POST(req: Request) {
       transport: http(rpcUrl),
     });
 
-    // Decode config so we can include useful debug info on failure.
-    const [{ executor: cfgExecutor, vault: cfgVault }] = decodeAbiParameters(
-      [
+    // Decode config (canonical AOAPolicy encoding) so we can include useful debug info on failure.
+    const decodedCfg = decodeMorphoLendPolicyConfig(policyConfig);
+    if (getAddress(decodedCfg.account) !== account) {
+      return NextResponse.json(
         {
-          type: 'tuple',
-          components: [
-            { name: 'executor', type: 'address' },
-            { name: 'vault', type: 'address' },
-            {
-              name: 'depositLimit',
-              type: 'tuple',
-              components: [
-                { name: 'allowance', type: 'uint160' },
-                { name: 'period', type: 'uint48' },
-                { name: 'start', type: 'uint48' },
-                { name: 'end', type: 'uint48' },
-              ],
-            },
-          ],
+          error: `policyConfig account mismatch: config=${decodedCfg.account} request=${account}`,
         },
-      ],
-      policyConfig,
-    ) as unknown as [DecodedPolicyConfig];
+        { status: 400 },
+      );
+    }
 
     debug = {
       policyManager: deployed.policyManager,
       policy: deployed.morphoLendPolicy,
       account,
       policyId,
-      executor: cfgExecutor,
-      vault: cfgVault,
+      executor: decodedCfg.executor,
+      vault: decodedCfg.vault,
       assets: assets.toString(),
       nonce: nonce.toString(),
       policyActiveNow: (await publicClient.readContract({
@@ -176,7 +152,7 @@ export async function POST(req: Request) {
         args: [deployed.morphoLendPolicy, policyId],
       })) as boolean,
       vaultAsset: (await publicClient.readContract({
-        address: getAddress(cfgVault),
+        address: getAddress(decodedCfg.vault),
         abi: [{ type: 'function', name: 'asset', inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view' }],
         functionName: 'asset',
         args: [],
@@ -194,7 +170,7 @@ export async function POST(req: Request) {
       address: token,
       abi: erc20Abi,
       functionName: 'allowance',
-      args: [account, getAddress(cfgVault)],
+      args: [account, getAddress(decodedCfg.vault)],
     })) as bigint;
 
     debug = {

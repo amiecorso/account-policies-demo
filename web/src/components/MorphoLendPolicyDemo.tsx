@@ -6,9 +6,10 @@ import { getAddress, isAddress, parseAbiItem } from 'viem';
 import { useAccount, useSignTypedData, useWriteContract } from 'wagmi';
 
 import { deployed } from '../contracts/addresses';
-import { policyManagerAbi } from '../contracts/abi';
+import { morphoLendPolicyAbi, policyManagerAbi } from '../contracts/abi';
 import { baseSepoliaPublicClient } from '../lib/baseSepolia';
 import {
+  decodeMorphoLendPolicyConfig,
   encodeMorphoLendPolicyConfig,
   hashPolicyConfig,
   type RecurringAllowanceLimit,
@@ -16,6 +17,7 @@ import {
 
 type InstalledPolicy = {
   policyId: Hex;
+  policy?: `0x${string}`;
   txHash?: Hex;
 };
 
@@ -30,9 +32,16 @@ type StoredPolicy = {
 
 type PolicyStatus = {
   installed: boolean;
-  revoked: boolean;
+  uninstalled: boolean;
   validAfter: number;
   validUntil: number;
+};
+
+type DepositLimitUsage = {
+  allowance: bigint;
+  remaining: bigint;
+  lastUpdated: { start: number; end: number; spend: bigint };
+  current: { start: number; end: number; spend: bigint };
 };
 
 const DEFAULT_FROM_BLOCK = BigInt(process.env.NEXT_PUBLIC_POLICY_EVENTS_FROM_BLOCK ?? '0');
@@ -95,6 +104,8 @@ export function MorphoLendPolicyDemo() {
     debug?: unknown;
   } | null>(null);
   const [sessionPolicyConfigs, setSessionPolicyConfigs] = useState<Record<string, Hex>>({});
+  const [depositUsage, setDepositUsage] = useState<DepositLimitUsage | null>(null);
+  const [depositUsageError, setDepositUsageError] = useState<string | null>(null);
 
   const canInstall = !!account && isAddress(vault) && isAddress(executor);
 
@@ -107,11 +118,12 @@ export function MorphoLendPolicyDemo() {
       end: Number(end || '0'),
     };
     return encodeMorphoLendPolicyConfig({
+      account: getAddress(account!),
       executor: getAddress(executor),
       vault: getAddress(vault),
       depositLimit: limit,
     });
-  }, [allowance, canInstall, end, executor, period, start, vault]);
+  }, [account, allowance, canInstall, end, executor, period, start, vault]);
 
   useEffect(() => {
     if (!account) {
@@ -128,7 +140,9 @@ export function MorphoLendPolicyDemo() {
         event: parseAbiItem(
           'event PolicyInstalled(bytes32 indexed policyId,address indexed account,address indexed policy)',
         ),
-        args: { account: acct, policy: deployed.morphoLendPolicy },
+        // Index all installs for this account, regardless of policy address.
+        // This avoids "empty list" when the env policy address doesn't match the installed one.
+        args: { account: acct },
         fromBlock: DEFAULT_FROM_BLOCK,
         toBlock: 'latest',
       });
@@ -137,15 +151,24 @@ export function MorphoLendPolicyDemo() {
       const next = logs
         .map((l) => ({
           policyId: l.args.policyId as Hex,
+          policy: getAddress(l.args.policy as `0x${string}`),
           txHash: l.transactionHash as Hex | undefined,
         }))
         .reverse();
-      setInstalled(next);
+
+      // Merge to avoid wiping optimistic entries when RPC log indexing lags (or when fromBlock is mis-set).
+      setInstalled((prev) => {
+        if (next.length === 0) return prev;
+        const map = new Map<string, InstalledPolicy>();
+        for (const p of prev) map.set(p.policyId.toLowerCase(), p);
+        for (const p of next) map.set(p.policyId.toLowerCase(), p);
+        return Array.from(map.values());
+      });
       if (!selectedPolicyId && next[0]) setSelectedPolicyId(next[0].policyId);
     }
 
     load().catch(() => {
-      if (!cancelled) setInstalled([]);
+      // Keep whatever we already have (optimistic entries, etc.)
     });
 
     return () => {
@@ -192,16 +215,17 @@ export function MorphoLendPolicyDemo() {
       await Promise.all(
         installed.map(async (p) => {
           try {
-            const [isInstalled, isRevoked, _acct, vAfter, vUntil] =
+            const [isInstalled, isUninstalled, _acct, vAfter, vUntil] =
               (await baseSepoliaPublicClient.readContract({
                 address: deployed.policyManager,
                 abi: policyManagerAbi,
                 functionName: 'getPolicyRecord',
-                args: [deployed.morphoLendPolicy, p.policyId],
+                args: [p.policy, p.policyId],
               })) as [boolean, boolean, `0x${string}`, bigint, bigint];
+            void _acct;
             next[p.policyId.toLowerCase()] = {
               installed: isInstalled,
-              revoked: isRevoked,
+              uninstalled: isUninstalled,
               validAfter: Number(vAfter),
               validUntil: Number(vUntil),
             };
@@ -235,6 +259,17 @@ export function MorphoLendPolicyDemo() {
     } as const;
 
     try {
+      // Preflight: if this is an EOA or wrong-chain address, viem calls will return "0x" (no data).
+      const code = await baseSepoliaPublicClient.getBytecode({ address: deployed.policyManager });
+      if (!code) {
+        setExecuteResult({
+          text:
+            `No contract bytecode at PolicyManager address ${deployed.policyManager} ` +
+            `(check chainId=${deployed.chainId} and NEXT_PUBLIC_POLICY_MANAGER_ADDRESS).`,
+        });
+        return;
+      }
+
       const policyId = (await baseSepoliaPublicClient.readContract({
         address: deployed.policyManager,
         abi: policyManagerAbi,
@@ -301,7 +336,7 @@ export function MorphoLendPolicyDemo() {
       setInstalled((prev) => {
         const key = policyId.toLowerCase();
         if (prev.some((p) => p.policyId.toLowerCase() === key)) return prev;
-        return [{ policyId, txHash: json.hash }, ...prev];
+        return [{ policyId, policy: binding.policy, txHash: json.hash }, ...prev];
       });
       setSelectedPolicyId(policyId);
       setExecuteResult({ text: `Installed policy ${policyId}`, txHash: json.hash });
@@ -331,18 +366,22 @@ export function MorphoLendPolicyDemo() {
     }
   }
 
-  async function onRevoke(policyId: Hex) {
+  async function onUninstall(input: { policyId: Hex; policy?: `0x${string}` }) {
     if (!account) return;
     if (revokePending) return;
+    if (!input.policy) {
+      setExecuteResult({ text: 'Missing policy address for this policyId (try refreshing / waiting for log indexing).' });
+      return;
+    }
     setRevokePending(true);
     try {
       const hash = await writeContractAsync({
         address: deployed.policyManager,
         abi: policyManagerAbi,
-        functionName: 'revokePolicy',
-        args: [deployed.morphoLendPolicy, policyId],
+        functionName: 'uninstallPolicy',
+        args: [input.policy, input.policyId, '0x', '0x'],
       });
-      setExecuteResult({ text: `Revoked policy ${policyId}`, txHash: hash });
+      setExecuteResult({ text: `Uninstalled policy ${input.policyId}`, txHash: hash });
     } finally {
       setRevokePending(false);
     }
@@ -398,6 +437,93 @@ export function MorphoLendPolicyDemo() {
     ? sessionPolicyConfigs[selectedPolicyId.toLowerCase()]
     : undefined;
   const selectedStored = selectedPolicyId ? storedPolicies[selectedPolicyId.toLowerCase()] : undefined;
+  const selectedInstalled = selectedPolicyId
+    ? installed.find((p) => p.policyId.toLowerCase() === selectedPolicyId.toLowerCase())
+    : undefined;
+
+  useEffect(() => {
+    if (!account || !selectedPolicyId) {
+      setDepositUsage(null);
+      setDepositUsageError(null);
+      return;
+    }
+
+    const key = selectedPolicyId.toLowerCase();
+    const cfg = sessionPolicyConfigs[key] ?? storedPolicies[key]?.policyConfig;
+    if (!cfg) {
+      setDepositUsage(null);
+      setDepositUsageError(null);
+      return;
+    }
+
+    const selectedInstalled = installed.find((p) => p.policyId.toLowerCase() === key);
+    if (
+      !selectedInstalled?.policy ||
+      selectedInstalled.policy.toLowerCase() !== deployed.morphoLendPolicy.toLowerCase()
+    ) {
+      setDepositUsage(null);
+      setDepositUsageError(null);
+      return;
+    }
+
+    const status = policyStatus[key];
+    if (!status || !status.installed || status.uninstalled) {
+      setDepositUsage(null);
+      setDepositUsageError(
+        status?.uninstalled
+          ? 'Policy is uninstalled; deposit usage is no longer available on the policy contract.'
+          : 'Policy status not loaded yet (or not installed).',
+      );
+      return;
+    }
+
+    let cancelled = false;
+    async function loadUsage() {
+      setDepositUsageError(null);
+      try {
+        const decoded = decodeMorphoLendPolicyConfig(cfg);
+        const allowanceBn = decoded.depositLimit.allowance;
+
+        const [lastUpdated, current] = (await baseSepoliaPublicClient.readContract({
+          address: selectedInstalled.policy!,
+          abi: morphoLendPolicyAbi,
+          functionName: 'getDepositLimitPeriodUsage',
+          args: [selectedPolicyId, getAddress(account), cfg],
+        })) as [
+          { start: bigint; end: bigint; spend: bigint },
+          { start: bigint; end: bigint; spend: bigint },
+        ];
+
+        const remaining = allowanceBn > current.spend ? allowanceBn - current.spend : BigInt(0);
+        if (!cancelled) {
+          setDepositUsage({
+            allowance: allowanceBn,
+            remaining,
+            lastUpdated: {
+              start: Number(lastUpdated.start),
+              end: Number(lastUpdated.end),
+              spend: lastUpdated.spend,
+            },
+            current: {
+              start: Number(current.start),
+              end: Number(current.end),
+              spend: current.spend,
+            },
+          });
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setDepositUsage(null);
+          setDepositUsageError(e instanceof Error ? e.message : String(e));
+        }
+      }
+    }
+
+    loadUsage();
+    return () => {
+      cancelled = true;
+    };
+  }, [account, selectedPolicyId, sessionPolicyConfigs, storedPolicies]);
 
   useEffect(() => {
     if (!selectedPolicyId) return;
@@ -414,8 +540,8 @@ export function MorphoLendPolicyDemo() {
       <section className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-lg font-semibold">1) Configure + install Morpho lend policy</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Install is a wallet-signed transaction (no typed-data signing required yet). This demo
-          keeps the policyConfig in memory only (refreshing the page will forget it).
+          The wallet signs an EIP-712 PolicyBinding, then the app’s executor broadcasts
+          the install transaction. The policyConfig is persisted locally so you can execute after a refresh.
         </p>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -555,7 +681,7 @@ export function MorphoLendPolicyDemo() {
               >
                 {installed.map((p) => (
                   <option key={p.policyId} value={p.policyId}>
-                    {p.policyId}
+                    {p.policyId} ({p.policy})
                   </option>
                 ))}
               </select>
@@ -566,11 +692,28 @@ export function MorphoLendPolicyDemo() {
                 <div className="text-sm">
                   <span className="font-medium">policyId</span>: {selectedPolicyId}
                 </div>
+                {selectedInstalled ? (
+                  <div className="text-sm">
+                    <span className="font-medium">policy</span>:{' '}
+                    {selectedInstalled.policy ? (
+                      <>
+                        {selectedInstalled.policy}
+                        {selectedInstalled.policy.toLowerCase() === deployed.morphoLendPolicy.toLowerCase() ? (
+                          <span className="text-zinc-600 dark:text-zinc-400"> (MorphoLendPolicy)</span>
+                        ) : (
+                          <span className="text-amber-700 dark:text-amber-400"> (not MorphoLendPolicy)</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-amber-700 dark:text-amber-400">(unknown yet)</span>
+                    )}
+                  </div>
+                ) : null}
                 {policyStatus[selectedPolicyId.toLowerCase()] ? (
                   <div className="text-sm">
                     <span className="font-medium">status</span>:{' '}
-                    {policyStatus[selectedPolicyId.toLowerCase()].revoked
-                      ? 'revoked'
+                    {policyStatus[selectedPolicyId.toLowerCase()].uninstalled
+                      ? 'uninstalled'
                       : policyStatus[selectedPolicyId.toLowerCase()].installed
                         ? 'installed'
                         : 'unknown'}
@@ -594,17 +737,49 @@ export function MorphoLendPolicyDemo() {
                   )}
                 </div>
 
+                {depositUsage ? (
+                  <div className="mt-1 text-sm">
+                    <div>
+                      <span className="font-medium">deposit limit</span>:{' '}
+                      <span className="text-zinc-600 dark:text-zinc-400">
+                        spend={depositUsage.current.spend.toString()} / allowance={depositUsage.allowance.toString()}
+                        {' '}
+                        (remaining={depositUsage.remaining.toString()})
+                      </span>
+                    </div>
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
+                      current period: [{depositUsage.current.start}, {depositUsage.current.end})
+                    </div>
+                  </div>
+                ) : depositUsageError ? (
+                  <div className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                    Couldn’t load deposit usage: {depositUsageError}
+                  </div>
+                ) : null}
+
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                   <button
-                    onClick={() => onRevoke(selectedPolicyId)}
+                    onClick={() => {
+                      if (!selectedInstalled) return;
+                      void onUninstall({ policyId: selectedInstalled.policyId, policy: selectedInstalled.policy });
+                    }}
                     disabled={isPending || installPending || executePending || revokePending}
                     className="rounded-lg border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
                   >
-                    {revokePending ? 'Revoking…' : 'Revoke (wallet tx)'}
+                    {revokePending ? 'Uninstalling…' : 'Uninstall (wallet tx)'}
                   </button>
                   <button
                     onClick={() => onExecute(selectedPolicyId)}
-                    disabled={isPending || installPending || revokePending || executePending}
+                    disabled={
+                      isPending ||
+                      installPending ||
+                      revokePending ||
+                      executePending ||
+                      (selectedInstalled
+                        ? !selectedInstalled.policy ||
+                          selectedInstalled.policy.toLowerCase() !== deployed.morphoLendPolicy.toLowerCase()
+                        : true)
+                    }
                     className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
                   >
                     {executePending ? 'Executing…' : 'Execute lend (app tx)'}
