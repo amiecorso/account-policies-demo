@@ -1,7 +1,8 @@
-'use client';
+"use client";
 
-import { MorphoLendPolicyDemo } from '../components/MorphoLendPolicyDemo';
-import { SmartWalletConnect } from '../components/SmartWalletConnect';
+import { MorphoLendPolicyDemo } from "../components/MorphoLendPolicyDemo";
+import { MoiraiDelegatePolicyDemo } from "../components/MoiraiDelegatePolicyDemo";
+import { SmartWalletConnect } from "../components/SmartWalletConnect";
 
 export default function Home() {
   return (
@@ -11,14 +12,19 @@ export default function Home() {
           Account Policies Demo
         </h1>
         <p className="text-zinc-600 dark:text-zinc-400">
-          Connect with a Coinbase Smart Wallet (EOAs aren’t supported for this
-          protocol).
+          Connect with a Coinbase Smart Wallet (EOAs aren&apos;t supported for
+          this protocol).
         </p>
         <div className="rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <SmartWalletConnect />
         </div>
-
+        <h2 className="text-lg font-semibold">Morpho Lend Policy</h2>
         <MorphoLendPolicyDemo />
+
+        <hr className="border-zinc-200 dark:border-zinc-800" />
+
+        <h2 className="text-lg font-semibold">Moirai Delegate Policy</h2>
+        <MoiraiDelegatePolicyDemo />
       </main>
     </div>
   );
