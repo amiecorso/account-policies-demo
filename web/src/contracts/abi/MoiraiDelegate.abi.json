@@ -1,0 +1,44 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      { "name": "policyManager", "type": "address", "internalType": "address" },
+      { "name": "admin", "type": "address", "internalType": "address" }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getConsensusApprovalDigest",
+    "inputs": [
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" },
+      { "name": "account", "type": "address", "internalType": "address" },
+      { "name": "policyConfig", "type": "bytes", "internalType": "bytes" }
+    ],
+    "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "NoConditionSpecified",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TimelockNotMet",
+    "inputs": [
+      { "name": "currentTimestamp", "type": "uint256", "internalType": "uint256" },
+      { "name": "unlockTimestamp", "type": "uint256", "internalType": "uint256" }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidConsensusSignature",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroTarget",
+    "inputs": []
+  }
+]

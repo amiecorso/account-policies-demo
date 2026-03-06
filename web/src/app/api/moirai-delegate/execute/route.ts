@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { baseSepolia } from 'viem/chains';
 import {
   BaseError,
+  ContractFunctionRevertedError,
   type Abi,
   createPublicClient,
   createWalletClient,
@@ -14,7 +15,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { deployed } from '../../../../contracts/addresses';
-import { policyManagerAbi } from '../../../../contracts/abi';
+import { policyManagerAbi, moiraiDelegateAbi } from '../../../../contracts/abi';
 import {
   decodeMoiraiDelegatePolicyConfig,
   encodeDelegateExecutionData,
@@ -188,7 +189,8 @@ export async function POST(req: Request) {
       policyActiveNow,
     };
 
-    const simulateAbi: Abi = [...(policyManagerAbi as Abi)];
+    // Merge PolicyManager + MoiraiDelegate ABIs so viem can decode policy-specific custom errors.
+    const simulateAbi: Abi = [...(policyManagerAbi as Abi), ...(moiraiDelegateAbi as Abi)];
 
     await publicClient.simulateContract({
       address: deployed.policyManager,
@@ -213,28 +215,52 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ hash });
   } catch (err) {
-    const details =
-      err instanceof BaseError
-        ? {
-            shortMessage: err.shortMessage,
-            details: err.details,
-            metaMessages: err.metaMessages,
-          }
-        : undefined;
+    // Try to surface a decoded contract revert with a user-friendly message.
+    let message: string;
+    let details: Record<string, unknown> | undefined;
 
-    const message =
-      err instanceof BaseError
-        ? err.metaMessages && err.metaMessages.length > 0
-          ? err.metaMessages.join('\n')
-          : err.shortMessage
-        : err instanceof Error
-          ? err.message
-          : String(err);
+    if (err instanceof BaseError) {
+      const revert = err.walk((e) => e instanceof ContractFunctionRevertedError);
+      if (revert instanceof ContractFunctionRevertedError) {
+        const errorName = revert.data?.errorName;
+        const errorArgs = revert.data?.args;
+        details = { errorName, args: errorArgs };
+        switch (errorName) {
+          case 'TimelockNotMet': {
+            const [current, unlock] = (errorArgs ?? []) as [bigint, bigint];
+            const unlockDate = new Date(Number(unlock) * 1000).toLocaleString();
+            message = `Timelock not yet met — unlock time is ${unlockDate} (current: ${current}, required: ${unlock}).`;
+            break;
+          }
+          case 'InvalidConsensusSignature':
+            message = 'Invalid consensus signature — the consensus signer approval is invalid.';
+            break;
+          case 'NoConditionSpecified':
+            message = 'No condition specified in the policy config.';
+            break;
+          case 'ZeroTarget':
+            message = 'Policy config has a zero target address.';
+            break;
+          default:
+            message = errorName
+              ? `Contract reverted: ${errorName}`
+              : err.shortMessage;
+        }
+      } else {
+        message =
+          err.metaMessages && err.metaMessages.length > 0
+            ? err.metaMessages.join('\n')
+            : err.shortMessage;
+        details = { shortMessage: err.shortMessage, details: err.details, metaMessages: err.metaMessages };
+      }
+    } else {
+      message = err instanceof Error ? err.message : String(err);
+    }
 
     return NextResponse.json(
       {
         error: message,
-        details,
+        details: details ? (jsonSafe(details) as Record<string, unknown>) : undefined,
         debug: debug ? (jsonSafe(debug) as Record<string, unknown>) : undefined,
       },
       { status: 500 },

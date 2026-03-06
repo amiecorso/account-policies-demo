@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Hex } from "viem";
 import {
+  encodeFunctionData,
   formatUnits,
   getAddress,
   isAddress,
@@ -40,6 +41,18 @@ const coinbaseSmartWalletAbi = [
     inputs: [{ name: "owner", type: "address" }],
     outputs: [{ name: "", type: "bool" }],
     stateMutability: "view",
+  },
+  {
+    // onlyEntryPointOrOwner — universal account (owner) can call this directly
+    type: "function",
+    name: "execute",
+    inputs: [
+      { name: "target", type: "address" },
+      { name: "value", type: "uint256" },
+      { name: "data", type: "bytes" },
+    ],
+    outputs: [],
+    stateMutability: "payable",
   },
 ] as const;
 
@@ -118,10 +131,11 @@ export function MoiraiDelegatePolicyDemo() {
     boolean | null
   >(null);
 
-  // Sub-account resolved for this app domain. Falls back to the universal account.
+  // Sub-account resolved for this app domain. Policies are installed on the sub-account.
   const [subAccountAddress, setSubAccountAddress] = useState<
     `0x${string}` | null
   >(null);
+  // When a sub-account exists it is the policy account; otherwise fall back to the universal account.
   const activeAccount = subAccountAddress ?? account;
 
   // policyConfig fields (excludes target/value/callData — built from send params)
@@ -143,8 +157,10 @@ export function MoiraiDelegatePolicyDemo() {
 
   // Send transaction params (component builds target/value/callData from these)
   const [selectedAsset, setSelectedAsset] = useState<Asset>("ETH");
-  const [recipient, setRecipient] = useState("0xBa057Cf252568f6658aE3822fAA4dcC0D326bD85");
-  const [amount, setAmount] = useState("");
+  const [recipient, setRecipient] = useState(
+    "0xBa057Cf252568f6658aE3822fAA4dcC0D326bD85"
+  );
+  const [amount, setAmount] = useState("0.00001");
 
   const [installed, setInstalled] = useState<InstalledPolicy[]>([]);
   const [selectedPolicyId, setSelectedPolicyId] = useState<Hex | null>(null);
@@ -452,7 +468,6 @@ export function MoiraiDelegatePolicyDemo() {
       salt: BigInt(salt || "0"),
       policyConfig,
     } as const;
-    console.log("**DEBUG** onInstall", activeAccount, binding);
 
     try {
       const code = await baseSepoliaPublicClient.getBytecode({
@@ -472,12 +487,31 @@ export function MoiraiDelegatePolicyDemo() {
         args: [binding],
       })) as Hex;
 
-      const hash = await writeContractAsync({
-        address: deployed.policyManager,
-        abi: policyManagerAbi,
-        functionName: "install",
-        args: [binding],
-      });
+      // PolicyManager.install requires msg.sender == binding.account (sub-account).
+      // The universal account (wagmi signer) is an owner of the sub-account, so it
+      // can call subAccount.execute(policyManager, 0, installData) directly.
+      // The sub-account then calls policyManager, making msg.sender == sub-account.
+      const hash = subAccountAddress
+        ? await writeContractAsync({
+            address: subAccountAddress,
+            abi: coinbaseSmartWalletAbi,
+            functionName: "execute",
+            args: [
+              deployed.policyManager,
+              BigInt(0),
+              encodeFunctionData({
+                abi: policyManagerAbi,
+                functionName: "install",
+                args: [binding],
+              }),
+            ],
+          })
+        : await writeContractAsync({
+            address: deployed.policyManager,
+            abi: policyManagerAbi,
+            functionName: "install",
+            args: [binding],
+          });
 
       setSessionPolicyConfigs((prev) => ({
         ...prev,
@@ -546,12 +580,27 @@ export function MoiraiDelegatePolicyDemo() {
         },
       ] as const;
 
-      const hash = await writeContractAsync({
-        address: deployed.policyManager,
-        abi: policyManagerAbi,
-        functionName: "uninstall",
-        args: uninstallArgs,
-      });
+      const hash = subAccountAddress
+        ? await writeContractAsync({
+            address: subAccountAddress,
+            abi: coinbaseSmartWalletAbi,
+            functionName: "execute",
+            args: [
+              deployed.policyManager,
+              BigInt(0),
+              encodeFunctionData({
+                abi: policyManagerAbi,
+                functionName: "uninstall",
+                args: uninstallArgs,
+              }),
+            ],
+          })
+        : await writeContractAsync({
+            address: deployed.policyManager,
+            abi: policyManagerAbi,
+            functionName: "uninstall",
+            args: uninstallArgs,
+          });
       setExecuteResult({
         text: `Uninstalled policy ${input.policyId}`,
         txHash: hash,
