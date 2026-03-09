@@ -340,6 +340,26 @@ export function MoiraiDelegatePolicyDemo() {
         }
       }
       setStoredPolicies(map);
+
+      // Merge stored policies into `installed` so the dropdown persists across refreshes.
+      const storedList = Object.values(map);
+      if (storedList.length > 0) {
+        setInstalled((prev) => {
+          const deduped = new Map<string, InstalledPolicy>();
+          for (const p of prev) deduped.set(p.policyId.toLowerCase(), p);
+          for (const p of storedList) {
+            if (!deduped.has(p.policyId.toLowerCase())) {
+              deduped.set(p.policyId.toLowerCase(), {
+                policyId: p.policyId,
+                policy: p.policy as `0x${string}`,
+                txHash: p.installTxHash,
+              });
+            }
+          }
+          return Array.from(deduped.values());
+        });
+        setSelectedPolicyId((prev) => prev ?? storedList[0].policyId);
+      }
     }
     loadStored().catch(() => {
       if (!cancelled) setStoredPolicies({});
@@ -470,7 +490,7 @@ export function MoiraiDelegatePolicyDemo() {
     } as const;
 
     try {
-      const code = await baseSepoliaPublicClient.getBytecode({
+      const code = await baseSepoliaPublicClient.getCode({
         address: deployed.policyManager,
       });
       if (!code) {
