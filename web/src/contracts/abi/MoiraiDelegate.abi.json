@@ -9,18 +9,40 @@
   },
   {
     "type": "function",
-    "name": "getConsensusApprovalDigest",
+    "name": "isExecuted",
     "inputs": [
-      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" },
-      { "name": "account", "type": "address", "internalType": "address" },
-      { "name": "policyConfig", "type": "bytes", "internalType": "bytes" }
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
     ],
-    "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
+    "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "triggerUninstall",
+    "inputs": [
+      { "name": "policyId", "type": "bytes32", "internalType": "bytes32" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "error",
+    "name": "AlreadyExecuted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidConsensusSignature",
+    "inputs": []
   },
   {
     "type": "error",
     "name": "NoConditionSpecified",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotYetExecuted",
     "inputs": []
   },
   {
@@ -30,11 +52,6 @@
       { "name": "currentTimestamp", "type": "uint256", "internalType": "uint256" },
       { "name": "unlockTimestamp", "type": "uint256", "internalType": "uint256" }
     ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidConsensusSignature",
-    "inputs": []
   },
   {
     "type": "error",
