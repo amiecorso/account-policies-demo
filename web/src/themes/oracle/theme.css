@@ -1,0 +1,627 @@
+/* ============================================================
+   Oracle Dark — The Fates Watch
+   A theme for Account Policies built on myth and cryptography
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap');
+
+/* ── Custom Properties ─────────────────────────────────────── */
+.theme-oracle {
+  --oracle-bg:           #080810;
+  --oracle-surface:      #0d0d22;
+  --oracle-surface-2:    #111132;
+  --oracle-border:       #2a2a6b;
+  --oracle-border-glow:  #4a3f8a;
+
+  --oracle-gold:         #d4a853;
+  --oracle-gold-light:   #e8c87a;
+  --oracle-gold-dim:     #8a6a2a;
+  --oracle-violet:       #a78bfa;
+  --oracle-violet-deep:  #7c3aed;
+  --oracle-violet-glow:  rgba(124, 58, 237, 0.35);
+
+  --oracle-text:         #f5f0e8;
+  --oracle-text-muted:   #8b8aad;
+  --oracle-text-dim:     #5a5982;
+
+  --oracle-success:      #2d6a4f;
+  --oracle-success-text: #74c69d;
+  --oracle-warning:      #7b5e1a;
+  --oracle-warning-text: #d4a853;
+  --oracle-error:        #9b1c1c;
+  --oracle-error-text:   #fca5a5;
+  --oracle-pending:      #2d3748;
+  --oracle-pending-text: #a0aec0;
+
+  --oracle-font-heading: 'Cinzel', 'Georgia', serif;
+  --oracle-font-body:    var(--font-geist-sans, system-ui, sans-serif);
+  --oracle-font-mono:    var(--font-geist-mono, 'Courier New', monospace);
+
+  background-color: var(--oracle-bg);
+  color: var(--oracle-text);
+  font-family: var(--oracle-font-body);
+}
+
+/* ── Starfield Background ──────────────────────────────────── */
+.oracle-starfield {
+  position: relative;
+  isolation: isolate;
+}
+
+.oracle-starfield::before,
+.oracle-starfield::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Distant stars — tiny and sparse */
+.oracle-starfield::before {
+  background: transparent;
+  box-shadow:
+    /* Row 1 */
+    142px  73px 0 0 rgba(245,240,232,0.12),
+    287px 194px 0 0 rgba(245,240,232,0.08),
+    491px  38px 0 0 rgba(245,240,232,0.15),
+    623px 281px 0 0 rgba(245,240,232,0.10),
+    834px 155px 0 0 rgba(245,240,232,0.07),
+    /* Row 2 */
+     67px 342px 0 0 rgba(245,240,232,0.11),
+    378px 419px 0 0 rgba(245,240,232,0.09),
+    512px 367px 0 0 rgba(245,240,232,0.14),
+    709px 438px 0 0 rgba(245,240,232,0.06),
+    945px 312px 0 0 rgba(245,240,232,0.12),
+    /* Row 3 */
+    113px 521px 0 0 rgba(245,240,232,0.08),
+    254px 588px 0 0 rgba(245,240,232,0.13),
+    467px 612px 0 0 rgba(245,240,232,0.07),
+    731px 547px 0 0 rgba(245,240,232,0.10),
+    892px 603px 0 0 rgba(245,240,232,0.09),
+    /* Row 4 */
+     39px 712px 0 0 rgba(245,240,232,0.11),
+    198px 748px 0 0 rgba(245,240,232,0.15),
+    443px 691px 0 0 rgba(245,240,232,0.08),
+    667px 763px 0 0 rgba(245,240,232,0.12),
+    821px 724px 0 0 rgba(245,240,232,0.06),
+    /* Extra scatter */
+    1024px  89px 0 0 rgba(245,240,232,0.09),
+    1156px 237px 0 0 rgba(245,240,232,0.11),
+    1089px 456px 0 0 rgba(245,240,232,0.07),
+    1234px 589px 0 0 rgba(245,240,232,0.13),
+    1312px 172px 0 0 rgba(245,240,232,0.08),
+    1478px 341px 0 0 rgba(245,240,232,0.10),
+    1567px 623px 0 0 rgba(245,240,232,0.06);
+  width: 1px;
+  height: 1px;
+}
+
+/* Brighter accent stars — gold tint */
+.oracle-starfield::after {
+  background: transparent;
+  box-shadow:
+    212px 147px 1px 0 rgba(212,168,83,0.20),
+    578px  89px 1px 0 rgba(212,168,83,0.15),
+    743px 356px 1px 0 rgba(212,168,83,0.18),
+    189px 478px 1px 0 rgba(212,168,83,0.12),
+    934px 221px 1px 0 rgba(212,168,83,0.22),
+    361px 634px 1px 0 rgba(212,168,83,0.14),
+    1102px 398px 1px 0 rgba(212,168,83,0.17),
+     67px  29px 1px 0 rgba(167,139,250,0.20),
+    487px 512px 1px 0 rgba(167,139,250,0.15),
+    812px 127px 1px 0 rgba(167,139,250,0.18);
+  width: 1px;
+  height: 1px;
+}
+
+.oracle-starfield > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Typography ────────────────────────────────────────────── */
+.oracle-heading {
+  font-family: var(--oracle-font-heading);
+  color: var(--oracle-text);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.oracle-heading-gold {
+  font-family: var(--oracle-font-heading);
+  color: var(--oracle-gold);
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  text-shadow: 0 0 20px rgba(212,168,83,0.4);
+}
+
+.oracle-mono {
+  font-family: var(--oracle-font-mono);
+  color: var(--oracle-text);
+}
+
+/* ── Card ──────────────────────────────────────────────────── */
+.oracle-card {
+  background-color: var(--oracle-surface);
+  border: 1px solid var(--oracle-border);
+  border-radius: 12px;
+  padding: 24px;
+  position: relative;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.oracle-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(212,168,83,0.0) 0%,
+    rgba(212,168,83,0.05) 50%,
+    rgba(212,168,83,0.0) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  opacity: 0;
+}
+
+.oracle-card:hover {
+  border-color: var(--oracle-gold-dim);
+  box-shadow:
+    0 0 0 1px rgba(212,168,83,0.1),
+    0 4px 24px rgba(8,8,16,0.6),
+    inset 0 1px 0 rgba(212,168,83,0.08);
+}
+
+.oracle-card:hover::before {
+  opacity: 1;
+}
+
+/* ── Buttons ───────────────────────────────────────────────── */
+.oracle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 10px 20px;
+  cursor: pointer;
+  border: none;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.1s ease,
+    opacity 0.2s ease;
+  font-family: var(--oracle-font-body);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.oracle-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.oracle-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* Primary — burnished gold */
+.oracle-btn-primary {
+  background: linear-gradient(135deg, #c9962f 0%, #e8c87a 50%, #c9962f 100%);
+  color: #1a1208;
+  box-shadow:
+    0 0 12px rgba(212,168,83,0.30),
+    0 2px 8px rgba(0,0,0,0.4);
+}
+
+.oracle-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d4a853 0%, #f0d48a 50%, #d4a853 100%);
+  box-shadow:
+    0 0 24px rgba(212,168,83,0.50),
+    0 4px 16px rgba(0,0,0,0.5);
+}
+
+/* Secondary — violet outline */
+.oracle-btn-secondary {
+  background: transparent;
+  color: var(--oracle-violet);
+  border: 1px solid var(--oracle-violet-deep);
+  box-shadow: inset 0 0 8px rgba(124,58,237,0.08);
+}
+
+.oracle-btn-secondary:hover:not(:disabled) {
+  background: rgba(124,58,237,0.12);
+  border-color: var(--oracle-violet);
+  box-shadow:
+    0 0 12px rgba(124,58,237,0.25),
+    inset 0 0 12px rgba(124,58,237,0.10);
+}
+
+/* Destructive */
+.oracle-btn-destructive {
+  background: rgba(155,28,28,0.15);
+  color: var(--oracle-error-text);
+  border: 1px solid rgba(155,28,28,0.5);
+}
+
+.oracle-btn-destructive:hover:not(:disabled) {
+  background: rgba(155,28,28,0.25);
+  border-color: #dc2626;
+  box-shadow: 0 0 12px rgba(155,28,28,0.25);
+}
+
+/* ── Status Badges ─────────────────────────────────────────── */
+.oracle-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.oracle-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.oracle-badge-active {
+  background: rgba(45,106,79,0.2);
+  color: var(--oracle-success-text);
+  border: 1px solid rgba(45,106,79,0.4);
+}
+.oracle-badge-active .oracle-badge-dot {
+  background: var(--oracle-success-text);
+  box-shadow: 0 0 6px rgba(116,198,157,0.8);
+  animation: oracle-pulse 2s ease-in-out infinite;
+}
+
+.oracle-badge-inactive {
+  background: rgba(42,42,107,0.3);
+  color: var(--oracle-text-dim);
+  border: 1px solid var(--oracle-border);
+}
+.oracle-badge-inactive .oracle-badge-dot {
+  background: var(--oracle-text-dim);
+}
+
+.oracle-badge-pending {
+  background: rgba(123,94,26,0.2);
+  color: var(--oracle-warning-text);
+  border: 1px solid rgba(123,94,26,0.4);
+}
+.oracle-badge-pending .oracle-badge-dot {
+  background: var(--oracle-warning-text);
+  animation: oracle-pulse 1s ease-in-out infinite;
+}
+
+.oracle-badge-error {
+  background: rgba(155,28,28,0.2);
+  color: var(--oracle-error-text);
+  border: 1px solid rgba(155,28,28,0.4);
+}
+.oracle-badge-error .oracle-badge-dot {
+  background: var(--oracle-error-text);
+}
+
+/* ── Section Header ────────────────────────────────────────── */
+.oracle-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.oracle-section-header-title {
+  font-family: var(--oracle-font-heading);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--oracle-gold);
+  text-shadow: 0 0 16px rgba(212,168,83,0.35);
+  white-space: nowrap;
+}
+
+.oracle-section-header-diamond {
+  color: var(--oracle-gold-dim);
+  font-size: 0.6rem;
+  flex-shrink: 0;
+}
+
+.oracle-section-header-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    rgba(212,168,83,0.3),
+    rgba(42,42,107,0.3)
+  );
+}
+
+/* ── Address Display ───────────────────────────────────────── */
+.oracle-address {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--oracle-font-mono);
+  font-size: 0.8125rem;
+  color: var(--oracle-text);
+  background: rgba(13,13,34,0.8);
+  border: 1px solid var(--oracle-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+
+.oracle-address-copy {
+  cursor: pointer;
+  color: var(--oracle-text-muted);
+  transition: color 0.2s ease;
+  padding: 2px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.oracle-address-copy:hover {
+  color: var(--oracle-gold);
+}
+
+.oracle-address-copy:active {
+  color: var(--oracle-gold-light);
+}
+
+/* ── Navigation ────────────────────────────────────────────── */
+.oracle-nav-link {
+  position: relative;
+  padding: 16px 12px 14px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--oracle-text-muted);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.oracle-nav-link:hover {
+  color: var(--oracle-text);
+}
+
+.oracle-nav-link.active {
+  color: var(--oracle-gold);
+}
+
+.oracle-nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent, var(--oracle-gold), transparent);
+  box-shadow: 0 0 8px rgba(212,168,83,0.5);
+}
+
+/* ── Header Thread Motif ───────────────────────────────────── */
+.oracle-threads {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  padding: 4px 0;
+}
+
+.oracle-thread {
+  height: 1px;
+  border-radius: 1px;
+}
+
+.oracle-thread-1 {
+  width: 20px;
+  background: linear-gradient(to right, var(--oracle-gold), rgba(212,168,83,0.4));
+}
+.oracle-thread-2 {
+  width: 14px;
+  background: linear-gradient(to right, var(--oracle-violet), rgba(167,139,250,0.3));
+}
+.oracle-thread-3 {
+  width: 8px;
+  background: linear-gradient(to right, var(--oracle-text-muted), rgba(139,138,173,0.2));
+}
+
+/* ── Input / Form Elements ─────────────────────────────────── */
+.oracle-input {
+  width: 100%;
+  background: rgba(8,8,16,0.8);
+  border: 1px solid var(--oracle-border);
+  border-radius: 8px;
+  color: var(--oracle-text);
+  font-family: var(--oracle-font-body);
+  font-size: 0.875rem;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.oracle-input::placeholder {
+  color: var(--oracle-text-dim);
+}
+
+.oracle-input:focus {
+  border-color: var(--oracle-violet-deep);
+  box-shadow:
+    inset 0 2px 4px rgba(0,0,0,0.3),
+    0 0 0 3px rgba(124,58,237,0.15);
+}
+
+.oracle-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.oracle-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b8aad' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+/* ── Divider ───────────────────────────────────────────────── */
+.oracle-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--oracle-border) 20%,
+    var(--oracle-border) 80%,
+    transparent 100%
+  );
+  margin: 20px 0;
+}
+
+/* ── Spinner ───────────────────────────────────────────────── */
+.oracle-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(212,168,83,0.2);
+  border-top-color: var(--oracle-gold);
+  border-radius: 50%;
+  animation: oracle-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.oracle-spinner-violet {
+  border-color: rgba(167,139,250,0.2);
+  border-top-color: var(--oracle-violet);
+}
+
+/* ── Label ─────────────────────────────────────────────────── */
+.oracle-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--oracle-text-muted);
+  margin-bottom: 6px;
+}
+
+/* ── Success / Error banners ───────────────────────────────── */
+.oracle-banner {
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.oracle-banner-success {
+  background: rgba(45,106,79,0.15);
+  border: 1px solid rgba(45,106,79,0.4);
+  color: var(--oracle-success-text);
+}
+
+.oracle-banner-error {
+  background: rgba(155,28,28,0.15);
+  border: 1px solid rgba(155,28,28,0.4);
+  color: var(--oracle-error-text);
+}
+
+.oracle-banner-info {
+  background: rgba(42,42,107,0.3);
+  border: 1px solid var(--oracle-border);
+  color: var(--oracle-text-muted);
+}
+
+/* ── Keyframes ─────────────────────────────────────────────── */
+@keyframes oracle-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes oracle-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px currentColor; }
+  50% { opacity: 0.5; box-shadow: 0 0 2px currentColor; }
+}
+
+@keyframes oracle-glow-in {
+  from {
+    opacity: 0;
+    box-shadow: 0 0 0 rgba(212,168,83,0);
+  }
+  to {
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(212,168,83,0.3);
+  }
+}
+
+@keyframes oracle-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes oracle-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Success checkmark draw */
+@keyframes oracle-check-draw {
+  from { stroke-dashoffset: 40; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* ── Utility: fade-up animation class ─────────────────────── */
+.oracle-animate-fade-up {
+  animation: oracle-fade-up 0.4s ease both;
+}
+
+.oracle-animate-glow-in {
+  animation: oracle-glow-in 0.5s ease both;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+.theme-oracle ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.theme-oracle ::-webkit-scrollbar-track {
+  background: var(--oracle-bg);
+}
+.theme-oracle ::-webkit-scrollbar-thumb {
+  background: var(--oracle-border);
+  border-radius: 3px;
+}
+.theme-oracle ::-webkit-scrollbar-thumb:hover {
+  background: var(--oracle-border-glow);
+}

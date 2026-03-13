@@ -1,0 +1,301 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+
+/* ============================================================
+   TERMINAL THEME — CYBERPUNK AGENT AUTHORIZATION
+   Account Policies v0.1 | Base Sepolia
+   ============================================================ */
+
+.theme-terminal {
+  /* Core palette */
+  --term-bg:          #000000;
+  --term-surface:     #050510;
+  --term-surface-2:   #070718;
+  --term-border:      rgba(0, 255, 65, 0.15);
+  --term-border-hard: #0a2a14;
+  --term-border-solid:#1a4a24;
+
+  /* Accent colors */
+  --term-green:       #00ff41;
+  --term-green-dim:   #00cc33;
+  --term-green-muted: #3d6b45;
+  --term-green-glow:  rgba(0, 255, 65, 0.2);
+  --term-pink:        #ff006e;
+  --term-pink-dim:    #cc0058;
+  --term-pink-glow:   rgba(255, 0, 110, 0.2);
+  --term-cyan:        #00d4ff;
+  --term-cyan-dim:    #00a8cc;
+  --term-cyan-glow:   rgba(0, 212, 255, 0.2);
+
+  /* Text */
+  --term-text:        #e0ffe8;
+  --term-text-muted:  #3d6b45;
+  --term-text-dim:    #1a3320;
+
+  /* Typography */
+  --term-font:        'JetBrains Mono', 'Courier New', monospace;
+
+  /* Applied */
+  font-family: var(--term-font);
+  background-color: var(--term-bg);
+  color: var(--term-text);
+}
+
+/* ── CRT scanline overlay ─────────────────────────────────── */
+.crt-overlay {
+  position: relative;
+}
+
+.crt-overlay::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.05) 2px,
+    rgba(0, 0, 0, 0.05) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Subtle vignette */
+.crt-overlay::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 60%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* ── Animations ───────────────────────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 4px var(--term-green-glow), 0 0 8px var(--term-green-glow); }
+  50%       { box-shadow: 0 0 12px var(--term-green-glow), 0 0 24px var(--term-green-glow), 0 0 40px rgba(0, 255, 65, 0.1); }
+}
+
+@keyframes pulse-glow-cyan {
+  0%, 100% { box-shadow: 0 0 4px var(--term-cyan-glow), 0 0 8px var(--term-cyan-glow); }
+  50%       { box-shadow: 0 0 12px var(--term-cyan-glow), 0 0 24px var(--term-cyan-glow), 0 0 40px rgba(0, 212, 255, 0.1); }
+}
+
+@keyframes pulse-glow-pink {
+  0%, 100% { box-shadow: 0 0 4px var(--term-pink-glow), 0 0 8px var(--term-pink-glow); }
+  50%       { box-shadow: 0 0 12px var(--term-pink-glow), 0 0 24px var(--term-pink-glow); }
+}
+
+@keyframes spin-braille {
+  /* Handled in React — this is a fallback rotate for pure CSS spinners */
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes text-flicker {
+  0%   { opacity: 1; }
+  92%  { opacity: 1; }
+  93%  { opacity: 0.7; }
+  94%  { opacity: 1; }
+  96%  { opacity: 0.8; }
+  97%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scan-line {
+  0%   { top: -4px; }
+  100% { top: 100%; }
+}
+
+/* ── Utility classes ──────────────────────────────────────── */
+.term-blink {
+  animation: blink 1s step-end infinite;
+}
+
+.term-blink-slow {
+  animation: blink 1.5s step-end infinite;
+}
+
+.term-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.term-pulse-glow-cyan {
+  animation: pulse-glow-cyan 2s ease-in-out infinite;
+}
+
+.term-pulse-glow-pink {
+  animation: pulse-glow-pink 2s ease-in-out infinite;
+}
+
+.term-flicker {
+  animation: text-flicker 8s linear infinite;
+}
+
+.term-slide-in {
+  animation: slide-in-left 0.2s ease-out forwards;
+}
+
+.term-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+/* ── Card styles ──────────────────────────────────────────── */
+.term-card {
+  background-color: var(--term-surface);
+  border: 1px solid var(--term-border-solid);
+  position: relative;
+}
+
+.term-card-glow {
+  background-color: var(--term-surface);
+  border: 1px solid var(--term-green-dim);
+  box-shadow: 0 0 0 1px var(--term-border), inset 0 0 40px rgba(0, 255, 65, 0.03);
+}
+
+/* ── Input styles ─────────────────────────────────────────── */
+.term-input {
+  background-color: var(--term-bg);
+  border: 1px solid var(--term-border-solid);
+  color: var(--term-text);
+  font-family: var(--term-font);
+  outline: none;
+  caret-color: var(--term-green);
+}
+
+.term-input:focus {
+  border-color: var(--term-green);
+  box-shadow: 0 0 0 1px var(--term-green), 0 0 8px var(--term-green-glow);
+}
+
+.term-input::placeholder {
+  color: var(--term-text-muted);
+  opacity: 0.6;
+}
+
+/* ── Button base ──────────────────────────────────────────── */
+.term-btn {
+  font-family: var(--term-font);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  position: relative;
+  border: 1px solid;
+}
+
+.term-btn-primary {
+  color: var(--term-green);
+  border-color: var(--term-green);
+  background: transparent;
+}
+
+.term-btn-primary:hover:not(:disabled) {
+  background: rgba(0, 255, 65, 0.1);
+  box-shadow: 0 0 12px var(--term-green-glow), inset 0 0 12px rgba(0, 255, 65, 0.05);
+  text-shadow: 0 0 8px var(--term-green);
+}
+
+.term-btn-primary:active:not(:disabled) {
+  background: rgba(0, 255, 65, 0.2);
+}
+
+.term-btn-primary:disabled {
+  color: var(--term-text-muted);
+  border-color: var(--term-border-solid);
+  cursor: not-allowed;
+}
+
+.term-btn-destructive {
+  color: var(--term-pink);
+  border-color: var(--term-pink);
+  background: transparent;
+}
+
+.term-btn-destructive:hover:not(:disabled) {
+  background: rgba(255, 0, 110, 0.1);
+  box-shadow: 0 0 12px var(--term-pink-glow), inset 0 0 12px rgba(255, 0, 110, 0.05);
+  text-shadow: 0 0 8px var(--term-pink);
+}
+
+.term-btn-destructive:disabled {
+  color: var(--term-text-muted);
+  border-color: var(--term-border-solid);
+  cursor: not-allowed;
+}
+
+.term-btn-ghost {
+  color: var(--term-text-muted);
+  border-color: var(--term-border-solid);
+  background: transparent;
+}
+
+.term-btn-ghost:hover:not(:disabled) {
+  color: var(--term-text);
+  border-color: var(--term-green-muted);
+}
+
+/* ── Status badges ────────────────────────────────────────── */
+.term-badge-online  { color: var(--term-green); }
+.term-badge-offline { color: var(--term-text-muted); }
+.term-badge-pending { color: var(--term-cyan); }
+.term-badge-error   { color: var(--term-pink); }
+
+/* ── Nav active state ─────────────────────────────────────── */
+.term-nav-active {
+  color: var(--term-green);
+  border-color: var(--term-green);
+  text-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
+}
+
+.term-nav-inactive {
+  color: var(--term-text-muted);
+  border-color: var(--term-border-solid);
+}
+
+.term-nav-inactive:hover {
+  color: var(--term-text);
+  border-color: var(--term-green-muted);
+}
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+.theme-terminal ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.theme-terminal ::-webkit-scrollbar-track {
+  background: var(--term-bg);
+}
+
+.theme-terminal ::-webkit-scrollbar-thumb {
+  background: var(--term-border-solid);
+}
+
+.theme-terminal ::-webkit-scrollbar-thumb:hover {
+  background: var(--term-green-muted);
+}
+
+/* ── Selection ────────────────────────────────────────────── */
+.theme-terminal ::selection {
+  background: rgba(0, 255, 65, 0.2);
+  color: var(--term-green);
+}

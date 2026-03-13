@@ -79,7 +79,10 @@ export async function POST(req: Request) {
 
     const decodedCfg = decodeMoiraiDelegatePolicyConfig(policyConfig);
 
-    if (getAddress(decodedCfg.executor) !== getAddress(executorAccount.address)) {
+    const isTimeDelayOnly = getAddress(decodedCfg.executor) === ZERO_ADDRESS;
+
+    // For consensus-required policies the configured executor must match this server's key.
+    if (!isTimeDelayOnly && getAddress(decodedCfg.executor) !== getAddress(executorAccount.address)) {
       return NextResponse.json(
         {
           error: `policyConfig executor mismatch: config=${decodedCfg.executor} server=${executorAccount.address}. Set executor to the app's executor address when configuring the policy.`,
@@ -88,47 +91,55 @@ export async function POST(req: Request) {
       );
     }
 
-    const domain = {
-      ...MOIRAI_DELEGATE_DOMAIN,
-      verifyingContract: deployed.moiraiDelegatePolicy,
-    };
+    let executionData: Hex;
 
-    // Sign the execution intent. The executor's signature over Execution+ExecutionData
-    // serves as both the authorization and (when consensusSigner == executor) the consensus approval.
-    // actionData is empty — MoiraiDelegate does not use policy-specific action data.
-    const executorSignature = await executorAccount.signTypedData({
-      domain,
-      primaryType: 'Execution',
-      types: {
-        Execution: [
-          { name: 'policyId', type: 'bytes32' },
-          { name: 'account', type: 'address' },
-          { name: 'policyConfigHash', type: 'bytes32' },
-          { name: 'executionData', type: 'ExecutionData' },
-        ],
-        ExecutionData: [
-          { name: 'actionData', type: 'bytes' },
-          { name: 'nonce', type: 'uint256' },
-          { name: 'deadline', type: 'uint256' },
-        ],
-      },
-      message: {
-        policyId,
-        account,
-        policyConfigHash,
-        executionData: {
-          actionData: '0x' as Hex,
-          nonce,
-          deadline,
+    if (isTimeDelayOnly) {
+      // Time-delay-only policy: the contract ignores executionData content — it only checks
+      // that executionData.length > 0. Pass a single non-empty byte to satisfy that check.
+      executionData = '0x01';
+    } else {
+      const domain = {
+        ...MOIRAI_DELEGATE_DOMAIN,
+        verifyingContract: deployed.moiraiDelegatePolicy,
+      };
+
+      // Sign the execution intent. The executor's signature over Execution+ExecutionData
+      // serves as both the authorization and (when consensusSigner == executor) the consensus approval.
+      // actionData is empty — MoiraiDelegate does not use policy-specific action data.
+      const executorSignature = await executorAccount.signTypedData({
+        domain,
+        primaryType: 'Execution',
+        types: {
+          Execution: [
+            { name: 'policyId', type: 'bytes32' },
+            { name: 'account', type: 'address' },
+            { name: 'policyConfigHash', type: 'bytes32' },
+            { name: 'executionData', type: 'ExecutionData' },
+          ],
+          ExecutionData: [
+            { name: 'actionData', type: 'bytes' },
+            { name: 'nonce', type: 'uint256' },
+            { name: 'deadline', type: 'uint256' },
+          ],
         },
-      },
-    });
+        message: {
+          policyId,
+          account,
+          policyConfigHash,
+          executionData: {
+            actionData: '0x' as Hex,
+            nonce,
+            deadline,
+          },
+        },
+      });
 
-    const executionData = encodeDelegateExecutionData({
-      nonce,
-      deadline,
-      executorSignature,
-    });
+      executionData = encodeDelegateExecutionData({
+        nonce,
+        deadline,
+        executorSignature,
+      });
+    }
 
     const publicClient = createPublicClient({
       chain: baseSepolia,
@@ -154,6 +165,7 @@ export async function POST(req: Request) {
       consensusSigner: decodedCfg.consensusSigner,
       nonce: nonce.toString(),
       policyActiveNow,
+      isTimeDelayOnly,
     };
 
     const accountCode = await publicClient.getCode({ address: account });
