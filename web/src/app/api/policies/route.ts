@@ -19,6 +19,7 @@ type UpsertBody = {
     policyConfigHash: Hex;
   };
   installTxHash?: Hex;
+  uninstalled?: boolean;
 };
 
 export async function GET(req: Request) {
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
       policyConfig: body.policyConfig,
       binding: body.binding,
       installTxHash: body.installTxHash,
+      uninstalled: body.uninstalled,
     });
 
     return NextResponse.json({ policy: saved });

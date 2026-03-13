@@ -15,6 +15,7 @@ export type StoredPolicy = {
     policyConfigHash: Hex;
   };
   installTxHash?: Hex;
+  uninstalled?: boolean;
   createdAtMs: number;
   updatedAtMs: number;
 };

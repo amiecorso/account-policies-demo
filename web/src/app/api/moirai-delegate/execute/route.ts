@@ -6,11 +6,10 @@ import {
   type Abi,
   createPublicClient,
   createWalletClient,
+  formatUnits,
   getAddress,
   http,
   type Hex,
-  encodeAbiParameters,
-  keccak256,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -94,49 +93,9 @@ export async function POST(req: Request) {
       verifyingContract: deployed.moiraiDelegatePolicy,
     };
 
-    // If a consensusSigner is configured and matches the executor, sign the ConsensusApproval.
-    // In this demo the executor doubles as the consensus signer.
-    let consensusSignature: Hex = '0x';
-    if (
-      decodedCfg.consensusSigner !== ZERO_ADDRESS &&
-      getAddress(decodedCfg.consensusSigner) === getAddress(executorAccount.address)
-    ) {
-      consensusSignature = await executorAccount.signTypedData({
-        domain,
-        primaryType: 'ConsensusApproval',
-        types: {
-          ConsensusApproval: [
-            { name: 'policyId', type: 'bytes32' },
-            { name: 'account', type: 'address' },
-            { name: 'policyConfigHash', type: 'bytes32' },
-          ],
-        },
-        message: {
-          policyId,
-          account,
-          policyConfigHash,
-        },
-      });
-    }
-
-    // actionData = abi.encode(DelegateExecution{consensusSignature})
-    const actionData = encodeAbiParameters(
-      [{ type: 'tuple', components: [{ name: 'consensusSignature', type: 'bytes' }] }],
-      [{ consensusSignature }],
-    );
-
-    // executionDataHash = keccak256(abi.encode(keccak256(actionData), nonce, deadline))
-    const executionDataHash = keccak256(
-      encodeAbiParameters(
-        [
-          { name: 'actionDataHash', type: 'bytes32' },
-          { name: 'nonce', type: 'uint256' },
-          { name: 'deadline', type: 'uint256' },
-        ],
-        [keccak256(actionData), nonce, deadline],
-      ),
-    );
-
+    // Sign the execution intent. The executor's signature over Execution+ExecutionData
+    // serves as both the authorization and (when consensusSigner == executor) the consensus approval.
+    // actionData is empty — MoiraiDelegate does not use policy-specific action data.
     const executorSignature = await executorAccount.signTypedData({
       domain,
       primaryType: 'Execution',
@@ -145,14 +104,23 @@ export async function POST(req: Request) {
           { name: 'policyId', type: 'bytes32' },
           { name: 'account', type: 'address' },
           { name: 'policyConfigHash', type: 'bytes32' },
-          { name: 'executionDataHash', type: 'bytes32' },
+          { name: 'executionData', type: 'ExecutionData' },
+        ],
+        ExecutionData: [
+          { name: 'actionData', type: 'bytes' },
+          { name: 'nonce', type: 'uint256' },
+          { name: 'deadline', type: 'uint256' },
         ],
       },
       message: {
         policyId,
         account,
         policyConfigHash,
-        executionDataHash,
+        executionData: {
+          actionData: '0x' as Hex,
+          nonce,
+          deadline,
+        },
       },
     });
 
@@ -160,7 +128,6 @@ export async function POST(req: Request) {
       nonce,
       deadline,
       executorSignature,
-      consensusSignature,
     });
 
     const publicClient = createPublicClient({
@@ -188,6 +155,28 @@ export async function POST(req: Request) {
       nonce: nonce.toString(),
       policyActiveNow,
     };
+
+    const accountCode = await publicClient.getCode({ address: account });
+    if (!accountCode || accountCode === '0x') {
+      return NextResponse.json(
+        {
+          error: `Smart wallet (${account}) is not yet deployed on-chain. The account must be deployed before a policy can be executed — send a transaction from it (e.g. fund it via the wallet app) to trigger deployment.`,
+        },
+        { status: 400 },
+      );
+    }
+
+    if (decodedCfg.value > BigInt(0)) {
+      const balance = await publicClient.getBalance({ address: account });
+      if (balance < decodedCfg.value) {
+        return NextResponse.json(
+          {
+            error: `Insufficient ETH balance: account has ${formatUnits(balance, 18)} ETH but policy requires ${formatUnits(decodedCfg.value, 18)} ETH. Fund the account (${account}) before executing.`,
+          },
+          { status: 400 },
+        );
+      }
+    }
 
     // Merge PolicyManager + MoiraiDelegate ABIs so viem can decode policy-specific custom errors.
     const simulateAbi: Abi = [...(policyManagerAbi as Abi), ...(moiraiDelegateAbi as Abi)];
@@ -226,20 +215,36 @@ export async function POST(req: Request) {
         const errorArgs = revert.data?.args;
         details = { errorName, args: errorArgs };
         switch (errorName) {
-          case 'TimelockNotMet': {
+          case 'UnlockTimestampNotReached': {
             const [current, unlock] = (errorArgs ?? []) as [bigint, bigint];
             const unlockDate = new Date(Number(unlock) * 1000).toLocaleString();
             message = `Timelock not yet met — unlock time is ${unlockDate} (current: ${current}, required: ${unlock}).`;
             break;
           }
-          case 'InvalidConsensusSignature':
-            message = 'Invalid consensus signature — the consensus signer approval is invalid.';
+          case 'AlreadyExecuted':
+            message = 'This policy instance has already been executed. Uninstall the policy to reset it.';
+            break;
+          case 'Unauthorized':
+            message = 'Unauthorized: executor signature is invalid or the caller is not authorized.';
+            break;
+          case 'SignatureExpired': {
+            const [current, deadline] = (errorArgs ?? []) as [bigint, bigint];
+            message = `Executor signature has expired (current: ${current}, deadline: ${deadline}).`;
+            break;
+          }
+          case 'ExecutionNonceAlreadyUsed': {
+            const [, nonce] = (errorArgs ?? []) as [unknown, bigint];
+            message = `Execution nonce ${nonce} has already been used. Use a fresh nonce.`;
+            break;
+          }
+          case 'PolicyConfigHashMismatch':
+            message = 'Policy config hash mismatch — the provided policyConfig does not match what was stored at install time.';
             break;
           case 'NoConditionSpecified':
             message = 'No condition specified in the policy config.';
             break;
-          case 'ZeroTarget':
-            message = 'Policy config has a zero target address.';
+          case 'FailedCall':
+            message = 'The delegated call failed. Likely causes: (1) the smart wallet is not yet deployed on-chain (counterfactual address), or (2) insufficient balance for the send. Ensure the account is deployed and funded.';
             break;
           default:
             message = errorName

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { Hex } from "viem";
 import {
   encodeFunctionData,
@@ -13,7 +13,7 @@ import {
 import { useAccount, useWriteContract } from "wagmi";
 
 import { deployed, tokens } from "../contracts/addresses";
-import { policyManagerAbi } from "../contracts/abi";
+import { moiraiDelegateAbi, policyManagerAbi } from "../contracts/abi";
 import { baseSepoliaPublicClient } from "../lib/baseSepolia";
 import {
   buildDelegateConfigFromSend,
@@ -71,6 +71,7 @@ type InstalledPolicy = {
   policyId: Hex;
   policy?: `0x${string}`;
   txHash?: Hex;
+  uninstalled?: boolean;
 };
 
 type StoredPolicy = {
@@ -85,6 +86,7 @@ type StoredPolicy = {
     salt: string;
   };
   installTxHash?: Hex;
+  uninstalled?: boolean;
 };
 
 type PolicyStatus = {
@@ -92,6 +94,7 @@ type PolicyStatus = {
   uninstalled: boolean;
   validAfter: number;
   validUntil: number;
+  isExecuted?: boolean;
 };
 
 function nowSeconds(): number {
@@ -353,6 +356,7 @@ export function MoiraiDelegatePolicyDemo() {
                 policyId: p.policyId,
                 policy: p.policy as `0x${string}`,
                 txHash: p.installTxHash,
+                uninstalled: p.uninstalled,
               });
             }
           }
@@ -385,19 +389,28 @@ export function MoiraiDelegatePolicyDemo() {
         installed.map(async (p) => {
           if (!p.policy) return;
           try {
-            const [isInstalled, isUninstalled, _acct, vAfter, vUntil] =
-              (await baseSepoliaPublicClient.readContract({
-                address: deployed.policyManager,
-                abi: policyManagerAbi,
-                functionName: "getPolicyRecord",
-                args: [p.policy, p.policyId],
-              })) as [boolean, boolean, `0x${string}`, bigint, bigint];
+            const [[isInstalled, isUninstalled, _acct, vAfter, vUntil], executed] =
+              await Promise.all([
+                baseSepoliaPublicClient.readContract({
+                  address: deployed.policyManager,
+                  abi: policyManagerAbi,
+                  functionName: "getPolicyRecord",
+                  args: [p.policy, p.policyId],
+                }) as Promise<[boolean, boolean, `0x${string}`, bigint, bigint]>,
+                baseSepoliaPublicClient.readContract({
+                  address: deployed.moiraiDelegatePolicy,
+                  abi: moiraiDelegateAbi,
+                  functionName: "isExecuted",
+                  args: [p.policyId],
+                }) as Promise<boolean>,
+              ]);
             void _acct;
             next[p.policyId.toLowerCase()] = {
               installed: isInstalled,
               uninstalled: isUninstalled,
               validAfter: Number(vAfter),
               validUntil: Number(vUntil),
+              isExecuted: executed,
             };
           } catch {}
         })
@@ -625,6 +638,34 @@ export function MoiraiDelegatePolicyDemo() {
         text: `Uninstalled policy ${input.policyId}`,
         txHash: hash,
       });
+
+      // Mark uninstalled in local state and persist to store.
+      setInstalled((prev) =>
+        prev.map((p) =>
+          p.policyId.toLowerCase() === key ? { ...p, uninstalled: true } : p
+        )
+      );
+      const storedCfgForUninstall = storedPolicies[key];
+      if (storedCfgForUninstall) {
+        setStoredPolicies((prev) => ({
+          ...prev,
+          [key]: { ...storedCfgForUninstall, uninstalled: true },
+        }));
+        void fetch("/api/policies", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            action: "upsert",
+            chainId: deployed.chainId,
+            account: getAddress(activeAccount),
+            policyId: input.policyId,
+            policy: storedCfgForUninstall.policy,
+            policyConfig: storedCfgForUninstall.policyConfig,
+            binding: storedCfgForUninstall.binding,
+            uninstalled: true,
+          }),
+        });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const isRejection =
@@ -696,6 +737,10 @@ export function MoiraiDelegatePolicyDemo() {
       }));
       setExecuteResult({ text: "Executed", txHash: json.hash as Hex });
       setExecuteNonce(freshNonce());
+    } catch (err) {
+      setExecuteResult({
+        text: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setExecutePending(false);
     }
@@ -809,6 +854,22 @@ export function MoiraiDelegatePolicyDemo() {
                 onChange={(e) => setUnlockTimestamp(e.target.value)}
                 placeholder="0"
               />
+              <div className="flex gap-2">
+                {[
+                  { label: "+10s", delta: 10 },
+                  { label: "+45s", delta: 45 },
+                  { label: "+24h", delta: 60 * 60 * 24 },
+                ].map(({ label, delta }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setUnlockTimestamp(String(nowSeconds() + delta))}
+                    className="rounded border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               {Number(unlockTimestamp) > 0 ? (
                 <span className="text-xs text-zinc-500 dark:text-zinc-500">
                   {new Date(Number(unlockTimestamp) * 1000).toLocaleString()}
@@ -1036,8 +1097,8 @@ export function MoiraiDelegatePolicyDemo() {
         </h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           Execute triggers the delegated send. The executor signs the execution
-          intent; if a consensus signer equals the executor address, the
-          executor also signs the ConsensusApproval.
+          intent. If a consensus signer is set, it must equal the executor
+          address — no separate approval signature is needed.
         </p>
 
         {!activeAccount ? (
@@ -1062,7 +1123,9 @@ export function MoiraiDelegatePolicyDemo() {
               >
                 {installed.map((p) => (
                   <option key={p.policyId} value={p.policyId}>
-                    {p.policyId}
+                    {p.uninstalled
+                      ? `(uninstalled) ${p.policyId}`
+                      : p.policyId}
                   </option>
                 ))}
               </select>
@@ -1090,21 +1153,41 @@ export function MoiraiDelegatePolicyDemo() {
                   </div>
                 ) : null}
                 {policyStatus[selectedPolicyId.toLowerCase()] ? (
-                  <div className="text-sm">
-                    <span className="font-medium">status</span>:{" "}
-                    {policyStatus[selectedPolicyId.toLowerCase()].uninstalled
-                      ? "uninstalled"
-                      : policyStatus[selectedPolicyId.toLowerCase()].installed
-                      ? "installed"
-                      : "unknown"}
-                    <span className="text-zinc-600 dark:text-zinc-400">
-                      {" "}
-                      (validAfter=
-                      {policyStatus[selectedPolicyId.toLowerCase()].validAfter},
-                      validUntil=
-                      {policyStatus[selectedPolicyId.toLowerCase()].validUntil})
-                    </span>
-                  </div>
+                  <>
+                    <div className="text-sm">
+                      <span className="font-medium">status</span>:{" "}
+                      {policyStatus[selectedPolicyId.toLowerCase()].uninstalled
+                        ? "uninstalled"
+                        : policyStatus[selectedPolicyId.toLowerCase()].installed
+                        ? "installed"
+                        : "unknown"}
+                      <span className="text-zinc-600 dark:text-zinc-400">
+                        {" "}
+                        (validAfter=
+                        {policyStatus[selectedPolicyId.toLowerCase()].validAfter},
+                        validUntil=
+                        {policyStatus[selectedPolicyId.toLowerCase()].validUntil})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-medium">execution</span>
+                      {policyStatus[selectedPolicyId.toLowerCase()].isExecuted ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          <svg className="h-3 w-3" viewBox="0 0 12 12" fill="currentColor">
+                            <path fillRule="evenodd" d="M10.28 2.28a.75.75 0 0 1 0 1.06l-5.5 5.5a.75.75 0 0 1-1.06 0l-2.5-2.5a.75.75 0 1 1 1.06-1.06L4.25 7.25l4.97-4.97a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                          </svg>
+                          Executed
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                          <svg className="h-3 w-3" viewBox="0 0 12 12" fill="currentColor">
+                            <circle cx="6" cy="6" r="2" />
+                          </svg>
+                          Not yet executed
+                        </span>
+                      )}
+                    </div>
+                  </>
                 ) : null}
                 <div className="text-sm">
                   <span className="font-medium">policyConfig</span>:{" "}
@@ -1165,7 +1248,7 @@ export function MoiraiDelegatePolicyDemo() {
                     {revokePending ? "Uninstalling…" : "Uninstall (wallet tx)"}
                   </button>
                   <button
-                    onClick={() => onExecute(selectedPolicyId)}
+                    onClick={() => void onExecute(selectedPolicyId)}
                     disabled={
                       isPending ||
                       installPending ||
@@ -1228,20 +1311,14 @@ export function MoiraiDelegatePolicyDemo() {
                   return (
                     <div className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border border-zinc-200 bg-white p-3 text-xs dark:border-zinc-800 dark:bg-black">
                       {rows.map(({ label, value }) => (
-                        <>
-                          <span
-                            key={`l-${label}`}
-                            className="font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap"
-                          >
+                        <Fragment key={label}>
+                          <span className="font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
                             {label}
                           </span>
-                          <span
-                            key={`v-${label}`}
-                            className="font-mono break-all text-zinc-800 dark:text-zinc-200"
-                          >
+                          <span className="font-mono break-all text-zinc-800 dark:text-zinc-200">
                             {value}
                           </span>
-                        </>
+                        </Fragment>
                       ))}
                     </div>
                   );

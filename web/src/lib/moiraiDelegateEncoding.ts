@@ -138,18 +138,7 @@ export function encodeDelegateExecutionData(input: {
   nonce: bigint;
   deadline: bigint;
   executorSignature: Hex;
-  consensusSignature: Hex;
 }): Hex {
-  const actionData = encodeAbiParameters(
-    [
-      {
-        type: 'tuple',
-        components: [{ name: 'consensusSignature', type: 'bytes' }],
-      },
-    ],
-    [{ consensusSignature: input.consensusSignature }],
-  );
-
   return encodeAbiParameters(
     [
       {
@@ -169,7 +158,7 @@ export function encodeDelegateExecutionData(input: {
         deadline: input.deadline,
         signature: input.executorSignature,
       },
-      actionData,
+      '0x',
     ],
   );
 }
