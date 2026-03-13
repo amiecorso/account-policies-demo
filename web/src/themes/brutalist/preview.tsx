@@ -1280,10 +1280,12 @@ function ExecuteTransferSection({
   onBack,
   activeAccount,
   preselectedPolicyId,
+  subAccountAddress,
 }: {
   onBack: () => void;
   activeAccount?: string;
   preselectedPolicyId?: string;
+  subAccountAddress?: `0x${string}` | null;
 }) {
   const { policies, loadState } = useInstalledPolicies(activeAccount);
   const [selectedPolicyId, setSelectedPolicyId] = useState<string>("");
@@ -1293,6 +1295,15 @@ function ExecuteTransferSection({
     error?: string;
   } | null>(null);
   const [nonce, setNonce] = useState(freshNonce);
+  const [uninstallState, setUninstallState] = useState<AsyncState>("idle");
+  const [uninstallResult, setUninstallResult] = useState<{
+    txHash?: string;
+    error?: string;
+  } | null>(null);
+  const [localUninstalledIds, setLocalUninstalledIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const { writeContractAsync } = useWriteContract();
 
   // Auto-select the preselected or first policy once policies are loaded
   useEffect(() => {
@@ -1308,9 +1319,97 @@ function ExecuteTransferSection({
     setExecResult(null);
   }, [activeAccount]);
 
-  const selectedPolicy = policies.find(
+  // Merge optimistic local-uninstall flags into the policy list
+  const effectivePolicies = policies.map((p) =>
+    localUninstalledIds.has(p.policyId.toLowerCase())
+      ? { ...p, uninstalled: true }
+      : p,
+  );
+
+  const selectedPolicy = effectivePolicies.find(
     (p) => p.policyId.toLowerCase() === selectedPolicyId.toLowerCase(),
   );
+
+  const handleUninstall = async () => {
+    if (!selectedPolicy || !activeAccount || selectedPolicy.uninstalled) return;
+    setUninstallState("loading");
+    setUninstallResult(null);
+    try {
+      const policyConfigHex = (selectedPolicy.policyConfig ?? "0x") as Hex;
+      const uninstallArgs = [
+        {
+          binding: {
+            account: getAddress(activeAccount as `0x${string}`),
+            policy: deployed.moiraiDelegatePolicy,
+            policyConfig: policyConfigHex,
+            validAfter: BigInt(selectedPolicy.binding?.validAfter ?? 0),
+            validUntil: BigInt(selectedPolicy.binding?.validUntil ?? 0),
+            salt: BigInt(selectedPolicy.binding?.salt ?? 0),
+          },
+          policy: deployed.moiraiDelegatePolicy,
+          policyId: selectedPolicy.policyId as Hex,
+          policyConfig: policyConfigHex,
+          uninstallData: "0x" as Hex,
+        },
+      ] as const;
+
+      const hash = subAccountAddress
+        ? await writeContractAsync({
+            address: subAccountAddress,
+            abi: coinbaseSmartWalletAbi,
+            functionName: "execute",
+            args: [
+              deployed.policyManager,
+              BigInt(0),
+              encodeFunctionData({
+                abi: policyManagerAbi,
+                functionName: "uninstall",
+                args: uninstallArgs,
+              }),
+            ],
+          })
+        : await writeContractAsync({
+            address: deployed.policyManager,
+            abi: policyManagerAbi,
+            functionName: "uninstall",
+            args: uninstallArgs,
+          });
+
+      // Optimistic local update
+      setLocalUninstalledIds((prev) => {
+        const next = new Set(prev);
+        next.add(selectedPolicy.policyId.toLowerCase());
+        return next;
+      });
+
+      // Fire-and-forget persist
+      fetch("/api/policies", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "upsert",
+          chainId: deployed.chainId,
+          account: getAddress(activeAccount as `0x${string}`),
+          policyId: selectedPolicy.policyId,
+          policy: selectedPolicy.policy,
+          policyConfig: selectedPolicy.policyConfig,
+          binding: selectedPolicy.binding,
+          uninstalled: true,
+        }),
+      });
+
+      setUninstallResult({ txHash: hash });
+      setUninstallState("success");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const isRejection =
+        msg.toLowerCase().includes("rejected") ||
+        msg.toLowerCase().includes("cancelled") ||
+        msg.toLowerCase().includes("denied");
+      if (!isRejection) setUninstallResult({ error: msg });
+      setUninstallState("idle");
+    }
+  };
 
   const handleExecute = async () => {
     if (!selectedPolicy || !activeAccount) return;
@@ -1433,7 +1532,7 @@ function ExecuteTransferSection({
               >
                 Failed to load policies.
               </div>
-            ) : policies.length === 0 ? (
+            ) : effectivePolicies.length === 0 ? (
               <div
                 style={{
                   fontFamily: "var(--brut-font-body)",
@@ -1456,9 +1555,11 @@ function ExecuteTransferSection({
                       setExecResult(null);
                       setExecState("idle");
                       setNonce(freshNonce());
+                      setUninstallResult(null);
+                      setUninstallState("idle");
                     }}
                   >
-                    {policies.map((p) => (
+                    {effectivePolicies.map((p) => (
                       <option key={p.policyId} value={p.policyId}>
                         {p.policyId.slice(0, 10)}…{p.policyId.slice(-6)}
                         {" — "}
@@ -1475,8 +1576,7 @@ function ExecuteTransferSection({
                   loading={execState === "loading"}
                   disabled={
                     !selectedPolicy ||
-                    execState === "loading" ||
-                    !!selectedPolicy?.uninstalled
+                    execState === "loading"
                   }
                   onClick={handleExecute}
                 >
@@ -1554,6 +1654,97 @@ function ExecuteTransferSection({
                       }}
                     >
                       {execResult.txHash.slice(0, 18)}…
+                    </a>
+                  </div>
+                )}
+
+                {/* ─ Uninstall ─ */}
+                {!selectedPolicy?.uninstalled && (
+                  <>
+                    <BrutalistDivider />
+                    <BrutalistButton
+                      variant="destructive"
+                      fullWidth
+                      loading={uninstallState === "loading"}
+                      disabled={uninstallState === "loading"}
+                      onClick={handleUninstall}
+                    >
+                      CANCEL TRANSACTION — UNINSTALL POLICY
+                    </BrutalistButton>
+                  </>
+                )}
+
+                {uninstallResult?.error && (
+                  <div
+                    style={{
+                      background: "#fff0f0",
+                      border: "2px solid var(--brut-red)",
+                      padding: "12px 16px",
+                    }}
+                    className="brut-fade-in"
+                  >
+                    <div
+                      style={{
+                        fontFamily: "var(--brut-font-body)",
+                        fontSize: 14,
+                        fontWeight: 700,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: "var(--brut-red)",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Uninstall Failed
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--brut-font-mono)",
+                        fontSize: 14,
+                        color: "var(--brut-red)",
+                        lineHeight: 1.5,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {uninstallResult.error}
+                    </div>
+                  </div>
+                )}
+
+                {uninstallState === "success" && uninstallResult?.txHash && (
+                  <div
+                    style={{
+                      background: "#fff0f0",
+                      border: "2px solid var(--brut-red)",
+                      padding: "12px 16px",
+                    }}
+                    className="brut-fade-in"
+                  >
+                    <div
+                      style={{
+                        fontFamily: "var(--brut-font-body)",
+                        fontSize: 14,
+                        fontWeight: 700,
+                        letterSpacing: "0.16em",
+                        textTransform: "uppercase",
+                        color: "var(--brut-red)",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Policy Uninstalled
+                    </div>
+                    <a
+                      href={txUrl(uninstallResult.txHash)}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        fontFamily: "var(--brut-font-mono)",
+                        fontSize: 14,
+                        color: "var(--brut-red)",
+                        textDecoration: "underline",
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      {uninstallResult.txHash.slice(0, 18)}…
                     </a>
                   </div>
                 )}
@@ -2150,6 +2341,7 @@ export function BrutalistPreview() {
           onBack={() => setView("document")}
           activeAccount={activeAccount}
           preselectedPolicyId={freshPolicyId}
+          subAccountAddress={subAccountAddress}
         />
       )}
     </BrutalistLayout>
